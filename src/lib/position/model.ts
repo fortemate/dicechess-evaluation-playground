@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Jegors Čemisovs
+// SPDX-License-Identifier: AGPL-3.0-only
+
 export type ActiveColor = 'w' | 'b';
 
 export type PieceSymbol = 'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
@@ -6,7 +9,11 @@ export type FileSymbol = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h';
 export type RankSymbol = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8';
 export type Square = `${FileSymbol}${RankSymbol}`;
 
-export type EnPassantTarget = Square | '-';
+/**
+ * A validated Dice Chess en-passant field. Dice Chess may retain several
+ * targets during one turn, encoded as concatenated squares such as a3c3e3.
+ */
+export type EnPassantTarget = '-' | Square | `${Square}${string}`;
 
 export interface PositionState {
 	piecePlacement: string;

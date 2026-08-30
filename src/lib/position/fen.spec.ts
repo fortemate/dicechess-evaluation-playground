@@ -1,7 +1,11 @@
+// SPDX-FileCopyrightText: 2026 Jegors Čemisovs
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { describe, expect, it } from 'vitest';
 import {
 	boardToPiecePlacement,
 	canonicalizeCastlingRights,
+	canonicalizeEnPassantTarget,
 	canonicalizeFen,
 	parseFen,
 	piecePlacementToBoard,
@@ -36,6 +40,10 @@ describe('FEN Parsing & Validation', () => {
 			const result = validateFen(fen6);
 			expect(result.valid).toBe(true);
 			expect(result.error).toBeUndefined();
+		});
+
+		it('accepts evaluator counter boundaries', () => {
+			expect(validateFen(`${INITIAL_FEN} 127 2147483647`).valid).toBe(true);
 		});
 
 		it('accepts empty board FEN', () => {
@@ -128,6 +136,18 @@ describe('FEN Parsing & Validation', () => {
 			expect(validateFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq invalid').valid).toBe(
 				false,
 			);
+			expect(validateFen('8/8/8/8/8/8/8/8 w - e3a').valid).toBe(false);
+			expect(validateFen('8/8/8/8/8/8/8/8 w - e3e3').valid).toBe(false);
+		});
+
+		it('rejects malformed or out-of-range six-field counters', () => {
+			const position = '8/8/8/8/8/8/8/8 w - -';
+			expect(validateFen(`${position} nope 1`).valid).toBe(false);
+			expect(validateFen(`${position} -1 1`).valid).toBe(false);
+			expect(validateFen(`${position} 128 1`).valid).toBe(false);
+			expect(validateFen(`${position} 0 nope`).valid).toBe(false);
+			expect(validateFen(`${position} 0 0`).valid).toBe(false);
+			expect(validateFen(`${position} 0 2147483648`).valid).toBe(false);
 		});
 	});
 
@@ -149,16 +169,29 @@ describe('FEN Parsing & Validation', () => {
 			expect(validateCastlingRights('KQkqX').valid).toBe(false);
 		});
 
-		it('validateEnPassantTarget handles dash and invalid formats', () => {
+		it('validateEnPassantTarget handles single, multiple, and invalid targets', () => {
 			expect(validateEnPassantTarget('-').valid).toBe(true);
 			expect(validateEnPassantTarget('e3').valid).toBe(true);
+			expect(validateEnPassantTarget('e3a3c3').valid).toBe(true);
+			expect(validateEnPassantTarget('').valid).toBe(false);
+			expect(validateEnPassantTarget('a').valid).toBe(false);
+			expect(validateEnPassantTarget('e3e3').valid).toBe(false);
 			expect(validateEnPassantTarget('xyz').valid).toBe(false);
 		});
 
-		it('canonicalizeCastlingRights handles empty or invalid strings', () => {
-			expect(canonicalizeCastlingRights('')).toBe('-');
+		it('canonicalizers reject invalid input rather than silently repairing it', () => {
 			expect(canonicalizeCastlingRights('-')).toBe('-');
-			expect(canonicalizeCastlingRights('X')).toBe('-');
+			expect(() => canonicalizeCastlingRights('')).toThrow('Invalid castling rights');
+			expect(() => canonicalizeCastlingRights('X')).toThrow("Invalid castling symbol 'X'");
+			expect(() => canonicalizeCastlingRights('KK')).toThrow("Duplicate castling symbol 'K'");
+			expect(() => canonicalizeEnPassantTarget('e3e3')).toThrow("Duplicate en-passant square 'e3'");
+		});
+
+		it('canonicalizes multi-target en-passant in engine square-index order', () => {
+			expect(canonicalizeEnPassantTarget('-')).toBe('-');
+			expect(canonicalizeEnPassantTarget('e3')).toBe('e3');
+			expect(canonicalizeEnPassantTarget('e3a3c3')).toBe('a3c3e3');
+			expect(canonicalizeEnPassantTarget('a6b3')).toBe('b3a6');
 		});
 	});
 
@@ -185,6 +218,19 @@ describe('FEN Parsing & Validation', () => {
 
 			const serialized = serializeFen(state);
 			expect(serialized).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3');
+		});
+
+		it('parses and round-trips Dice Chess multi-target en-passant', () => {
+			const state = parseFen('8/8/8/8/8/8/8/8 b - e3a3c3 0 1');
+			expect(state.enPassant).toBe('a3c3e3');
+			expect(serializeFen(state)).toBe('8/8/8/8/8/8/8/8 b - a3c3e3');
+		});
+
+		it('normalizes surrounding and repeated whitespace in four- and six-field inputs', () => {
+			expect(canonicalizeFen(`  ${INITIAL_FEN}\n`)).toBe(INITIAL_FEN);
+			expect(canonicalizeFen('\t8/8/8/8/8/8/8/8   b  -  e3a3   0  1  ')).toBe(
+				'8/8/8/8/8/8/8/8 b - a3e3',
+			);
 		});
 
 		it('canonicalizes non-canonical castling order', () => {

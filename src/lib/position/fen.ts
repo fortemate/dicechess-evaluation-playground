@@ -1,5 +1,11 @@
+// SPDX-FileCopyrightText: 2026 Jegors Čemisovs
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import type { ActiveColor, Board, EnPassantTarget, PieceSymbol, PositionState } from './model.js';
 import { CANONICAL_CASTLING_SYMBOLS, VALID_PIECE_SYMBOLS } from './model.js';
+
+const MAX_HALF_MOVE_CLOCK = 127;
+const MAX_FULL_MOVE_NUMBER = 2_147_483_647;
 
 export interface ValidationResult {
 	valid: boolean;
@@ -8,7 +14,8 @@ export interface ValidationResult {
 
 /**
  * Validates a FEN string for syntax correctness.
- * Accepts 4-field or 6-field FEN strings (move counters in 6-field FEN are ignored).
+ * Accepts 4-field or 6-field FEN strings. Six-field move counters are
+ * syntax-validated against the evaluator engine contract, then ignored.
  */
 export function validateFen(fen: string): ValidationResult {
 	const trimmed = fen.trim();
@@ -42,6 +49,49 @@ export function validateFen(fen: string): ValidationResult {
 	const enPassantResult = validateEnPassantTarget(fields[3]);
 	if (!enPassantResult.valid) {
 		return enPassantResult;
+	}
+
+	if (fields.length === 6) {
+		const halfMoveResult = validateDecimalCounter(
+			fields[4],
+			'half-move clock',
+			0,
+			MAX_HALF_MOVE_CLOCK,
+		);
+		if (!halfMoveResult.valid) {
+			return halfMoveResult;
+		}
+
+		const fullMoveResult = validateDecimalCounter(
+			fields[5],
+			'full-move number',
+			1,
+			MAX_FULL_MOVE_NUMBER,
+		);
+		if (!fullMoveResult.valid) {
+			return fullMoveResult;
+		}
+	}
+
+	return { valid: true };
+}
+
+function validateDecimalCounter(
+	value: string,
+	label: string,
+	minimum: number,
+	maximum: number,
+): ValidationResult {
+	if (!/^\d+$/.test(value)) {
+		return { valid: false, error: `Invalid ${label} '${value}': expected a decimal integer` };
+	}
+
+	const parsed = Number(value);
+	if (parsed < minimum || parsed > maximum) {
+		return {
+			valid: false,
+			error: `Invalid ${label} '${value}': expected ${minimum}-${maximum}`,
+		};
 	}
 
 	return { valid: true };
@@ -171,18 +221,36 @@ export function validateCastlingRights(castlingRights: string): ValidationResult
 }
 
 /**
- * Validates en-passant target square string.
+ * Validates one or more concatenated Dice Chess en-passant target squares.
  */
 export function validateEnPassantTarget(enPassant: string): ValidationResult {
 	if (enPassant === '-') {
 		return { valid: true };
 	}
 
-	if (!/^[a-h][1-8]$/.test(enPassant)) {
+	if (!enPassant || enPassant.length % 2 !== 0) {
 		return {
 			valid: false,
-			error: `Invalid en-passant square '${enPassant}'`,
+			error: `Invalid en-passant field '${enPassant}': expected complete square pairs`,
 		};
+	}
+
+	const seen = new Set<string>();
+	for (let index = 0; index < enPassant.length; index += 2) {
+		const square = enPassant.slice(index, index + 2);
+		if (!/^[a-h][1-8]$/.test(square)) {
+			return {
+				valid: false,
+				error: `Invalid en-passant square '${square}' in '${enPassant}'`,
+			};
+		}
+		if (seen.has(square)) {
+			return {
+				valid: false,
+				error: `Duplicate en-passant square '${square}' in '${enPassant}'`,
+			};
+		}
+		seen.add(square);
 	}
 
 	return { valid: true };
@@ -192,7 +260,12 @@ export function validateEnPassantTarget(enPassant: string): ValidationResult {
  * Canonicalizes castling rights string to canonical order (K, Q, k, q) or '-'.
  */
 export function canonicalizeCastlingRights(castlingRights: string): string {
-	if (castlingRights === '-' || !castlingRights) {
+	const validation = validateCastlingRights(castlingRights);
+	if (!validation.valid) {
+		throw new Error(validation.error);
+	}
+
+	if (castlingRights === '-') {
 		return '-';
 	}
 
@@ -203,7 +276,36 @@ export function canonicalizeCastlingRights(castlingRights: string): string {
 		}
 	}
 
-	return result || '-';
+	return result;
+}
+
+/**
+ * Canonicalizes en-passant targets to the evaluator engine serialization
+ * order: ascending square index (rank first, then file).
+ */
+export function canonicalizeEnPassantTarget(enPassant: string): EnPassantTarget {
+	const validation = validateEnPassantTarget(enPassant);
+	if (!validation.valid) {
+		throw new Error(validation.error);
+	}
+
+	if (enPassant === '-') {
+		return '-';
+	}
+
+	const squares: string[] = [];
+	for (let index = 0; index < enPassant.length; index += 2) {
+		squares.push(enPassant.slice(index, index + 2));
+	}
+
+	squares.sort((left, right) => squareIndex(left) - squareIndex(right));
+	return squares.join('') as EnPassantTarget;
+}
+
+function squareIndex(square: string): number {
+	const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
+	const rank = Number(square[1]) - 1;
+	return rank * 8 + file;
 }
 
 /**
@@ -295,8 +397,8 @@ export function canonicalizePiecePlacement(piecePlacement: string): string {
 
 /**
  * Parses a 4- or 6-field FEN string into a PositionState object.
- * Canonicalizes piece placement and castling rights.
- * Ignores move counters in 6-field FEN.
+ * Canonicalizes piece placement, castling rights, and en-passant targets.
+ * Validates and then ignores move counters in 6-field FEN.
  */
 export function parseFen(fen: string): PositionState {
 	const validation = validateFen(fen);
@@ -308,7 +410,7 @@ export function parseFen(fen: string): PositionState {
 	const piecePlacement = canonicalizePiecePlacement(fields[0]);
 	const activeColor = fields[1] as ActiveColor;
 	const castlingRights = canonicalizeCastlingRights(fields[2]);
-	const enPassant = fields[3] as EnPassantTarget;
+	const enPassant = canonicalizeEnPassantTarget(fields[3]);
 
 	return {
 		piecePlacement,
@@ -329,8 +431,9 @@ export function serializeFen(state: PositionState): string {
 
 	const piecePlacement = canonicalizePiecePlacement(state.piecePlacement);
 	const castlingRights = canonicalizeCastlingRights(state.castlingRights);
+	const enPassant = canonicalizeEnPassantTarget(state.enPassant);
 
-	return `${piecePlacement} ${state.activeColor} ${castlingRights} ${state.enPassant}`;
+	return `${piecePlacement} ${state.activeColor} ${castlingRights} ${enPassant}`;
 }
 
 /**
