@@ -358,33 +358,39 @@ export function boardToPiecePlacement(board: Board): string {
 			throw new Error(`Invalid board row ${i}: expected 8 columns`);
 		}
 
-		let rankStr = '';
-		let emptyCount = 0;
-
-		for (let j = 0; j < 8; j++) {
-			const cell = row[j];
-			if (cell === null) {
-				emptyCount++;
-			} else {
-				if (!VALID_PIECE_SYMBOLS.has(cell)) {
-					throw new Error(`Invalid piece symbol '${cell}' at row ${i}, col ${j}`);
-				}
-				if (emptyCount > 0) {
-					rankStr += emptyCount.toString();
-					emptyCount = 0;
-				}
-				rankStr += cell;
-			}
-		}
-
-		if (emptyCount > 0) {
-			rankStr += emptyCount.toString();
-		}
-
-		rankStrings.push(rankStr);
+		rankStrings.push(serializeBoardRow(row, i));
 	}
 
 	return rankStrings.join('/');
+}
+
+function serializeBoardRow(row: Board[number], rowIndex: number): string {
+	let rankString = '';
+	let emptyCount = 0;
+
+	for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
+		const cell = row[columnIndex];
+		if (cell === null) {
+			emptyCount++;
+			continue;
+		}
+
+		if (!VALID_PIECE_SYMBOLS.has(cell)) {
+			throw new Error(`Invalid piece symbol '${cell}' at row ${rowIndex}, col ${columnIndex}`);
+		}
+
+		if (emptyCount > 0) {
+			rankString += emptyCount.toString();
+			emptyCount = 0;
+		}
+		rankString += cell;
+	}
+
+	if (emptyCount > 0) {
+		rankString += emptyCount.toString();
+	}
+
+	return rankString;
 }
 
 /**
