@@ -1,0 +1,223 @@
+name: 'CD: Publish Image'
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: publish-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  publish:
+    name: Publish verified image
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout successful CI commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate publish target
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main_head=$(git rev-parse --verify 'refs/remotes/origin/main^{commit}')
+
+          if ! git merge-base --is-ancestor "$TARGET_SHA" "$main_head"; then
+            echo "::error::CI commit $TARGET_SHA is not reachable from origin/main."
+            exit 1
+          fi
+
+      - name: Resolve application version
+        id: version
+        run: |
+          app_version="dev-$(git rev-parse --short HEAD)"
+          echo "app_version=$app_version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Extract OCI metadata
+        id: metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
+        with:
+          context: git
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.app_version }}
+            type=sha,format=long
+          labels: |
+            org.opencontainers.image.title=Dice Chess Evaluation Playground
+            org.opencontainers.image.description=Private interactive playground for testing Dice Chess evaluation models
+            org.opencontainers.image.url=https://github.com/fortemate/dicechess-evaluation-playground
+            org.opencontainers.image.source=https://github.com/fortemate/dicechess-evaluation-playground
+            org.opencontainers.image.documentation=https://github.com/fortemate/dicechess-evaluation-playground#readme
+            org.opencontainers.image.vendor=Fortemate
+            org.opencontainers.image.licenses=LicenseRef-Proprietary
+            org.opencontainers.image.authors=Jegors Čemisovs
+            org.opencontainers.image.base.name=docker.io/library/node:26-trixie-slim
+          annotations: |
+            org.opencontainers.image.title=Dice Chess Evaluation Playground
+            org.opencontainers.image.description=Private interactive playground for testing Dice Chess evaluation models
+            org.opencontainers.image.url=https://github.com/fortemate/dicechess-evaluation-playground
+            org.opencontainers.image.source=https://github.com/fortemate/dicechess-evaluation-playground
+            org.opencontainers.image.documentation=https://github.com/fortemate/dicechess-evaluation-playground#readme
+            org.opencontainers.image.vendor=Fortemate
+            org.opencontainers.image.licenses=LicenseRef-Proprietary
+            org.opencontainers.image.authors=Jegors Čemisovs
+            org.opencontainers.image.base.name=docker.io/library/node:26-trixie-slim
+
+      - name: Build amd64 smoke image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: dicechess-evaluation-playground:smoke
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.app_version }}
+          secrets: |
+            node_auth_token=${{ github.token }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test container
+        run: IMAGE=dicechess-evaluation-playground:smoke bash scripts/container-smoke.sh
+
+      - name: Build and publish candidate multi-architecture image
+        id: publish
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: mode=max
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.app_version }}
+          secrets: |
+            node_auth_token=${{ github.token }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:candidate-${{ github.event.workflow_run.head_sha }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          annotations: ${{ steps.metadata.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Validate published OCI index
+        id: index
+        env:
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.publish.outputs.digest }}
+          EXPECTED_SOURCE: https://github.com/fortemate/dicechess-evaluation-playground
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          index_json=$(docker buildx imagetools inspect --raw "$IMAGE_REF")
+
+          jq -e --arg source "$EXPECTED_SOURCE" --arg revision "$EXPECTED_REVISION" '
+            .mediaType == "application/vnd.oci.image.index.v1+json" and
+            ([.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")] | length) == 1 and
+            ([.manifests[] | select(.platform.os == "linux" and .platform.architecture == "arm64")] | length) == 1 and
+            .annotations["org.opencontainers.image.source"] == $source and
+            .annotations["org.opencontainers.image.licenses"] == "LicenseRef-Proprietary" and
+            .annotations["org.opencontainers.image.revision"] == $revision and
+            (.annotations["org.opencontainers.image.version"] | length) > 0
+          ' <<<"$index_json" >/dev/null
+
+          amd64_digest=$(jq -er '.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64") | .digest' <<<"$index_json")
+          arm64_digest=$(jq -er '.manifests[] | select(.platform.os == "linux" and .platform.architecture == "arm64") | .digest' <<<"$index_json")
+
+          if [[ ! "$amd64_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || [[ ! "$arm64_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Published OCI index contains an invalid child-manifest digest."
+            exit 1
+          fi
+
+          jq -e --arg amd64 "$amd64_digest" --arg arm64 "$arm64_digest" '
+            ([
+              .manifests[] |
+              select(.annotations["vnd.docker.reference.type"] == "attestation-manifest") |
+              .annotations["vnd.docker.reference.digest"]
+            ] | sort) == ([$amd64, $arm64] | sort)
+          ' <<<"$index_json" >/dev/null
+
+          echo "amd64_digest=$amd64_digest" >> "$GITHUB_OUTPUT"
+          echo "arm64_digest=$arm64_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Scan published amd64 image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.amd64_digest }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Scan published arm64 image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.index.outputs.arm64_digest }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Promote verified digest to development and commit tags
+        env:
+          PUBLISHED_DIGEST: ${{ steps.publish.outputs.digest }}
+          SOURCE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.publish.outputs.digest }}
+          TARGET_TAGS: ${{ steps.metadata.outputs.tags }}
+        run: |
+          promote_args=()
+
+          while IFS= read -r target_tag; do
+            [ -n "$target_tag" ] || continue
+
+            if [[ "$target_tag" != "${REGISTRY}/${IMAGE_NAME}:"* ]]; then
+              echo "::error::Refusing to promote unexpected image tag: $target_tag"
+              exit 1
+            fi
+
+            promote_args+=(--tag "$target_tag")
+          done <<<"$TARGET_TAGS"
+
+          if [ "${#promote_args[@]}" -eq 0 ]; then
+            echo "::error::No verified image tags were generated."
+            exit 1
+          fi
+
+          docker buildx imagetools create "${promote_args[@]}" "$SOURCE_REF"
+
+          while IFS= read -r target_tag; do
+            [ -n "$target_tag" ] || continue
+            promoted_digest=$(docker buildx imagetools inspect "$target_tag" --format '{{json .Manifest.Digest}}' | jq -er '.')
+
+            if [ "$promoted_digest" != "$PUBLISHED_DIGEST" ]; then
+              echo "::error::Promoted tag $target_tag resolves to $promoted_digest, expected $PUBLISHED_DIGEST."
+              exit 1
+            fi
+          done <<<"$TARGET_TAGS"

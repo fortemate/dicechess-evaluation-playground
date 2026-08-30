@@ -1,0 +1,44 @@
+name: 'CI: PR Policy'
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  check-pr:
+    name: Validate branch and Issue link
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name and linked Issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const headRef = context.payload.pull_request.head.ref;
+            const author = context.payload.pull_request.user.login;
+            const body = context.payload.pull_request.body || '';
+
+            if (author === 'dependabot[bot]' && headRef.startsWith('dependabot/')) {
+              console.log('Skipping validation for Dependabot branch.');
+              return;
+            }
+
+            const pattern = /^(task|feat(ure)?|fix|bug|refactor|chore|docs|ci|test|perf)\/((issue-)?\d+-)?[a-z0-9-]+$/;
+            if (!pattern.test(headRef)) {
+              core.setFailed(`Branch "${headRef}" must be <type>/<short-desc> with an allowed type and optional Issue ID.`);
+              return;
+            }
+
+            const match = headRef.match(/^[a-z]+\/(?:issue-)?(\d+)-/);
+            if (match) {
+              const issueId = match[1];
+              const issuePattern = new RegExp(`(Closes|Resolves|Fixes)\\s+#${issueId}\\b`, 'i');
+              if (!issuePattern.test(body)) {
+                core.setFailed(`Branch "${headRef}" references Issue #${issueId}, but the PR body does not close that exact Issue.`);
+                return;
+              }
+            }
+
+            console.log('PR policy OK.');

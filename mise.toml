@@ -1,0 +1,70 @@
+[tools]
+node = "26.1.0"
+lefthook = "2.1.9"
+betterleaks = "1.5.0"
+actionlint = "1.7.12"
+
+[tasks.setup]
+description = "Install dependencies and register Git hooks"
+run = """
+npm ci
+lefthook install
+"""
+
+[tasks.dev]
+description = "Start the SvelteKit development server"
+run = "npm run dev"
+
+[tasks.build]
+description = "Build the adapter-node application"
+run = "npm run build"
+
+[tasks.check]
+description = "Run the canonical non-browser quality gate"
+run = """
+npm run lint
+npm run format:check
+npm run typecheck
+actionlint
+npm run test:coverage
+npm run build
+"""
+
+[tasks.format]
+description = "Format supported files with Prettier"
+run = "npm run format"
+
+[tasks.test]
+description = "Run Vitest unit tests"
+run = "npm run test"
+
+[tasks."test:coverage"]
+description = "Run Vitest with enforced coverage thresholds"
+run = "npm run test:coverage"
+
+[tasks."test:e2e"]
+description = "Run Playwright against the built adapter-node server"
+run = "npm run test:e2e"
+
+[tasks."test:e2e:install"]
+description = "Install the Chromium browser used by Playwright"
+run = "npx playwright install chromium"
+
+[tasks."hook:install"]
+description = "Register Lefthook Git hooks"
+run = "lefthook install"
+
+[tasks."hook:run"]
+description = "Scan the repository and run all pre-commit jobs against tracked files"
+run = """
+betterleaks git --redact .
+lefthook run pre-commit --all-files
+"""
+
+[tasks."container:build"]
+description = "Build the local production image"
+run = "docker build -t dicechess-evaluation-playground:local ."
+
+[tasks."container:smoke"]
+description = "Verify the local image boots as non-root and serves /health"
+run = "IMAGE=dicechess-evaluation-playground:local bash scripts/container-smoke.sh"

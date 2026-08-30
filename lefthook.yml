@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: betterleaks
+      run: mise exec -- betterleaks git --pre-commit --redact --staged
+
+    - name: prettier
+      glob: '**/*.{ts,svelte,js,json,md,yaml,yml,css,html}'
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    - name: actionlint
+      glob: '.github/workflows/*.{yaml,yml}'
+      run: mise exec -- actionlint {staged_files}
+
+pre-push:
+  jobs:
+    - name: quality-gate
+      run: mise run check
