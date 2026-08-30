@@ -43,11 +43,12 @@ export const EDITOR_PIECES: readonly EditorPiece[] = [
 	{ symbol: 'p', label: 'Black pawn', glyph: '♟' },
 ];
 
-export const EDITOR_SQUARES: readonly Square[] = Array.from({ length: 8 }, (_, rankIndex) =>
-	Array.from({ length: 8 }, (_, fileIndex) =>
-		String.fromCharCode('a'.charCodeAt(0) + fileIndex).concat(String(8 - rankIndex)),
-	),
-).flat() as Square[];
+const EDITOR_FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
+const EDITOR_RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'] as const;
+
+export const EDITOR_SQUARES: readonly Square[] = EDITOR_RANKS.flatMap((rank) =>
+	EDITOR_FILES.map((file) => `${file}${rank}` as Square),
+);
 
 const PIECES_BY_SYMBOL: Readonly<Record<PieceSymbol, Piece>> = {
 	K: { color: 'white', role: 'king' },
