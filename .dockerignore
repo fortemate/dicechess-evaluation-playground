@@ -10,6 +10,7 @@ test-results
 e2e
 scripts
 *.md
+!THIRD_PARTY_NOTICES.md
 *.log
 .env*
 .DS_Store

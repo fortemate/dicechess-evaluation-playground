@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 Jegors Čemisovs -->
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+
 <script lang="ts">
 	import { resolve } from '$app/paths';
 </script>
@@ -6,7 +9,7 @@
 	<title>Dice Chess Evaluation Playground</title>
 	<meta
 		name="description"
-		content="Private playground for interactively testing Dice Chess evaluation models."
+		content="Protected playground for interactively testing Dice Chess evaluation models."
 	/>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>

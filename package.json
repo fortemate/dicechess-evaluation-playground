@@ -2,7 +2,16 @@
 	"name": "@fortemate/dicechess-evaluation-playground",
 	"private": true,
 	"version": "0.1.0",
-	"license": "UNLICENSED",
+	"license": "AGPL-3.0-only",
+	"author": "Jegors Čemisovs",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/fortemate/dicechess-evaluation-playground.git"
+	},
+	"homepage": "https://github.com/fortemate/dicechess-evaluation-playground#readme",
+	"bugs": {
+		"url": "https://github.com/fortemate/dicechess-evaluation-playground/issues"
+	},
 	"type": "module",
 	"engines": {
 		"node": "^26.0.0",

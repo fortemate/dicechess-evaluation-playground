@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Jegors Čemisovs
+# SPDX-License-Identifier: AGPL-3.0-only
+
 set -euo pipefail
 
 playground_image="${IMAGE:-dicechess-evaluation-playground:local}"
 playground_container="evaluation-playground-smoke-${RANDOM}"
 playground_internal_port="${CONTAINER_PORT:-3100}"
+
+playground_license_label="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "${playground_image}")"
+if [ "${playground_license_label}" != "AGPL-3.0-only" ]; then
+  echo "Expected OCI license AGPL-3.0-only, got ${playground_license_label:-missing}" >&2
+  exit 1
+fi
 
 if [[ ! "${playground_internal_port}" =~ ^[0-9]+$ ]]; then
   echo "CONTAINER_PORT must be numeric: ${playground_internal_port}" >&2
@@ -62,4 +71,22 @@ if [ "${playground_runtime_uid}" != "10001" ]; then
   exit 1
 fi
 
-echo "Container smoke passed: ${playground_image} (${playground_health_url}, uid=${playground_runtime_uid})"
+for playground_notice_path in \
+  /app/licenses/LICENSE \
+  /app/licenses/THIRD_PARTY_NOTICES.md \
+  /app/licenses/third-party/svelte-LICENSE.md \
+  /app/licenses/third-party/sveltekit-LICENSE \
+  /app/licenses/third-party/adapter-node-LICENSE \
+  /app/licenses/third-party/vite-LICENSE.md \
+  /app/licenses/third-party/tailwindcss-LICENSE \
+  /app/licenses/third-party/cookie-LICENSE \
+  /app/licenses/third-party/clsx-LICENSE \
+  /app/licenses/third-party/devalue-LICENSE \
+  /app/licenses/third-party/set-cookie-parser-LICENSE; do
+  if ! docker exec "${playground_container}" test -r "${playground_notice_path}"; then
+    echo "Missing readable license notice: ${playground_notice_path}" >&2
+    exit 1
+  fi
+done
+
+echo "Container smoke passed: ${playground_image} (${playground_health_url}, uid=${playground_runtime_uid}, license=${playground_license_label})"
