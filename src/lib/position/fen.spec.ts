@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
 	boardToPiecePlacement,
+	canonicalizeCastlingRights,
 	canonicalizeFen,
 	parseFen,
 	piecePlacementToBoard,
 	serializeFen,
+	validateActiveColor,
+	validateCastlingRights,
+	validateEnPassantTarget,
 	validateFen,
+	validatePiecePlacement,
 	validatePositionState,
 } from './fen.js';
 import {
@@ -13,6 +18,8 @@ import {
 	INITIAL_FEN,
 	type ActiveColor,
 	type Board,
+	type EnPassantTarget,
+	type PieceSymbol,
 	type PositionState,
 } from './model.js';
 
@@ -121,6 +128,37 @@ describe('FEN Parsing & Validation', () => {
 			expect(validateFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq invalid').valid).toBe(
 				false,
 			);
+		});
+	});
+
+	describe('Sub-validator direct tests', () => {
+		it('validatePiecePlacement detects empty string', () => {
+			const res = validatePiecePlacement('');
+			expect(res.valid).toBe(false);
+			expect(res.error).toBe('Piece placement cannot be empty');
+		});
+
+		it('validateActiveColor handles invalid values', () => {
+			expect(validateActiveColor('w').valid).toBe(true);
+			expect(validateActiveColor('b').valid).toBe(true);
+			expect(validateActiveColor('x').valid).toBe(false);
+		});
+
+		it('validateCastlingRights handles empty and long strings', () => {
+			expect(validateCastlingRights('').valid).toBe(false);
+			expect(validateCastlingRights('KQkqX').valid).toBe(false);
+		});
+
+		it('validateEnPassantTarget handles dash and invalid formats', () => {
+			expect(validateEnPassantTarget('-').valid).toBe(true);
+			expect(validateEnPassantTarget('e3').valid).toBe(true);
+			expect(validateEnPassantTarget('xyz').valid).toBe(false);
+		});
+
+		it('canonicalizeCastlingRights handles empty or invalid strings', () => {
+			expect(canonicalizeCastlingRights('')).toBe('-');
+			expect(canonicalizeCastlingRights('-')).toBe('-');
+			expect(canonicalizeCastlingRights('X')).toBe('-');
 		});
 	});
 
@@ -243,11 +281,41 @@ describe('FEN Parsing & Validation', () => {
 			expect(reconstructed).toBe(placement);
 		});
 
-		it('throws on invalid board dimensions when converting to piece placement', () => {
+		it('throws on invalid board dimensions or symbols when converting to piece placement', () => {
 			expect(() => boardToPiecePlacement([] as unknown as Board)).toThrow(
 				'Invalid board: expected 8 rows',
 			);
-			expect(() => boardToPiecePlacement([[null, null], [null]] as unknown as Board)).toThrow();
+			expect(() => boardToPiecePlacement(null as unknown as Board)).toThrow(
+				'Invalid board: expected 8 rows',
+			);
+
+			const badRowBoard = Array(8)
+				.fill(null)
+				.map(() => Array(8).fill(null));
+			badRowBoard[0] = [null, null];
+			expect(() => boardToPiecePlacement(badRowBoard)).toThrow(
+				'Invalid board row 0: expected 8 columns',
+			);
+
+			const nonArrayRowBoard = Array(8)
+				.fill(null)
+				.map(() => Array(8).fill(null));
+			(nonArrayRowBoard as unknown[])[0] = 'not an array';
+			expect(() => boardToPiecePlacement(nonArrayRowBoard)).toThrow(
+				'Invalid board row 0: expected 8 columns',
+			);
+
+			const invalidPieceBoard = Array(8)
+				.fill(null)
+				.map(() => Array(8).fill(null));
+			invalidPieceBoard[0][0] = 'Z' as unknown as PieceSymbol;
+			expect(() => boardToPiecePlacement(invalidPieceBoard)).toThrow(
+				"Invalid piece symbol 'Z' at row 0, col 0",
+			);
+		});
+
+		it('piecePlacementToBoard throws error for invalid piece placement', () => {
+			expect(() => piecePlacementToBoard('invalid')).toThrow('Invalid piece placement');
 		});
 	});
 
@@ -263,6 +331,14 @@ describe('FEN Parsing & Validation', () => {
 		});
 
 		it('returns invalid for malformed PositionState fields', () => {
+			const badPlacement: PositionState = {
+				piecePlacement: 'invalid',
+				activeColor: 'w',
+				castlingRights: '-',
+				enPassant: '-',
+			};
+			expect(validatePositionState(badPlacement).valid).toBe(false);
+
 			const badColor: PositionState = {
 				piecePlacement: '8/8/8/8/8/8/8/8',
 				activeColor: 'x' as unknown as ActiveColor,
@@ -270,6 +346,22 @@ describe('FEN Parsing & Validation', () => {
 				enPassant: '-',
 			};
 			expect(validatePositionState(badColor).valid).toBe(false);
+
+			const badCastling: PositionState = {
+				piecePlacement: '8/8/8/8/8/8/8/8',
+				activeColor: 'w',
+				castlingRights: 'invalid',
+				enPassant: '-',
+			};
+			expect(validatePositionState(badCastling).valid).toBe(false);
+
+			const badEnPassant: PositionState = {
+				piecePlacement: '8/8/8/8/8/8/8/8',
+				activeColor: 'w',
+				castlingRights: '-',
+				enPassant: 'invalid' as unknown as EnPassantTarget,
+			};
+			expect(validatePositionState(badEnPassant).valid).toBe(false);
 		});
 	});
 });
