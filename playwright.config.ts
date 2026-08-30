@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Jegors Čemisovs
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
@@ -20,6 +23,7 @@ export default defineConfig({
 			PORT: '3000',
 			BODY_SIZE_LIMIT: '64K',
 			APP_VERSION: 'e2e',
+			PUBLIC_SOURCE_REVISION: '0123456789abcdef0123456789abcdef01234567',
 		},
 	},
 });

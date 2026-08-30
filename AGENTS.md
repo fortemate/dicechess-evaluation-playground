@@ -24,8 +24,11 @@ Operational guidance for humans and coding agents working on `fortemate/diceches
 
 - Use Svelte 5 runes for new stateful components and `$lib` aliases for application imports.
 - Keep `mise run check` as the canonical non-browser gate; do not bypass or weaken it for generated changes.
-- Preserve non-root container execution and BuildKit secret mounts.
-- The repository is currently `UNLICENSED`. Do not add or copy GPL/AGPL code, including board-editor code, without an explicit compatible-license decision.
+- Preserve non-root container execution. Builds use the public npm dependency graph and must not receive private-package credentials.
+- Fortemate-authored code in this repository is `AGPL-3.0-only`. Preserve SPDX identifiers and the root license and source offer.
+- Third-party code retains its own license identity and notices. Chessground is approved only under the exact version and boundary in `docs/decisions/0001-board-editor.md`; do not describe it as relicensed by Fortemate.
+- Do not copy the proprietary analytics editor or its FEN builder. Implement the editor independently with explicit side-to-move, castling, and en-passant state.
+- Keep evaluator and training implementations, model artifacts, secrets, private origins, and exact host deployment overlays outside this public-source repository.
 
 ## Issue management
 

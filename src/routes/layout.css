@@ -1,3 +1,6 @@
+/* SPDX-FileCopyrightText: 2026 Jegors Čemisovs */
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
 @import 'tailwindcss';
 
 :root {
@@ -20,12 +23,35 @@ body {
 	min-height: 100vh;
 }
 
-main {
+.app-shell {
 	display: grid;
 	min-height: 100vh;
+	grid-template-rows: minmax(0, 1fr) auto;
+}
+
+main {
+	display: grid;
+	min-height: 0;
 	place-items: center;
 	padding: 2rem;
 	background: radial-gradient(circle at top left, rgb(37 99 235 / 18%), transparent 34rem), #0a0f1c;
+}
+
+.source-notice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.45rem;
+	padding: 0.9rem 1.25rem;
+	border-top: 1px solid rgb(148 163 184 / 16%);
+	color: #94a3b8;
+	background: #080c16;
+	font-size: 0.78rem;
+}
+
+.source-notice a {
+	font-weight: 600;
 }
 
 .baseline-card {
