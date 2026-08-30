@@ -2,10 +2,16 @@ name: 'CI: PR Policy'
 
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, edited, reopened, ready_for_review, synchronize]
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 
 jobs:
   check-pr:
@@ -16,29 +22,612 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const headRef = context.payload.pull_request.head.ref;
-            const author = context.payload.pull_request.user.login;
-            const body = context.payload.pull_request.body || '';
+            const conventionalBranchPattern = /^(task|feat(ure)?|fix|bug|refactor|chore|docs|ci|test|perf)\/((issue-)?\d+-)?[a-z0-9-]+$/;
+            const closingDirectivePattern = /\b(close(?:s|d)?|fix(?:es|ed)?|resolve(?:s|d)?)\s*:?\s+(?:([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+))?#(\d+)\b/gi;
+            const delegatedKeywords = new Set(['closes', 'fixes', 'resolves']);
 
-            if (author === 'dependabot[bot]' && headRef.startsWith('dependabot/')) {
-              console.log('Skipping validation for Dependabot branch.');
-              return;
-            }
+            const allow = (message) => ({ allowed: true, message });
+            const deny = (message) => ({ allowed: false, message });
 
-            const pattern = /^(task|feat(ure)?|fix|bug|refactor|chore|docs|ci|test|perf)\/((issue-)?\d+-)?[a-z0-9-]+$/;
-            if (!pattern.test(headRef)) {
-              core.setFailed(`Branch "${headRef}" must be <type>/<short-desc> with an allowed type and optional Issue ID.`);
-              return;
-            }
+            const closingConnection = (issues) => ({
+              totalCount: issues.length,
+              nodes: issues.slice(0, 2),
+            });
 
-            const match = headRef.match(/^[a-z]+\/(?:issue-)?(\d+)-/);
-            if (match) {
-              const issueId = match[1];
-              const issuePattern = new RegExp(`(Closes|Resolves|Fixes)\\s+#${issueId}\\b`, 'i');
-              if (!issuePattern.test(body)) {
-                core.setFailed(`Branch "${headRef}" references Issue #${issueId}, but the PR body does not close that exact Issue.`);
-                return;
+            const parseClosingDirectives = (body) =>
+              Array.from(body.matchAll(closingDirectivePattern), (match) => ({
+                keyword: match[1].toLowerCase(),
+                owner: match[2] || null,
+                repository: match[3] || null,
+                numberText: match[4],
+                number: Number(match[4]),
+              }));
+
+            const validatePolicy = (snapshot) => {
+              const repository = snapshot?.repository;
+              const pullRequest = repository?.pullRequest;
+
+              if (!repository || !pullRequest) {
+                return deny('GitHub did not return the current pull request policy context.');
+              }
+
+              const headRef = pullRequest.headRefName || '';
+              const body = pullRequest.body || '';
+              const author = pullRequest.author;
+
+              const isDependabot =
+                author?.__typename === 'Bot' &&
+                author.login === 'dependabot' &&
+                headRef.startsWith('dependabot/');
+
+              if (isDependabot) {
+                return allow('Skipping validation for the verified Dependabot branch.');
+              }
+
+              const isJules =
+                author?.__typename === 'Bot' && author.login === 'google-labs-jules';
+
+              if (!isJules && conventionalBranchPattern.test(headRef)) {
+                const branchIssueMatch = headRef.match(/^[a-z]+\/(?:issue-)?(\d+)-/);
+
+                if (branchIssueMatch) {
+                  const issueId = branchIssueMatch[1];
+                  const exactIssuePattern = new RegExp(
+                    `(Closes|Resolves|Fixes)\\s+#${issueId}\\b`,
+                    'i',
+                  );
+
+                  if (!exactIssuePattern.test(body)) {
+                    return deny(
+                      `Branch "${headRef}" references Issue #${issueId}, but the PR body does not close that exact Issue.`,
+                    );
+                  }
+                }
+
+                return allow('Conventional branch policy passed.');
+              }
+
+              if (!isJules) {
+                return deny(
+                  `Branch "${headRef}" is non-conventional and was not opened by the verified Jules App.`,
+                );
+              }
+
+              if (
+                !repository.defaultBranchRef?.name ||
+                pullRequest.baseRefName !== repository.defaultBranchRef.name
+              ) {
+                return deny(
+                  'A delegated Jules pull request must target the repository default branch.',
+                );
+              }
+
+              const directives = parseClosingDirectives(body);
+
+              if (directives.length !== 1) {
+                return deny(
+                  `A delegated Jules pull request must contain exactly one closing directive; found ${directives.length}. Use Closes #<n>, Fixes #<n>, or Resolves #<n>.`,
+                );
+              }
+
+              const directive = directives[0];
+
+              if (!delegatedKeywords.has(directive.keyword)) {
+                return deny(
+                  `Closing keyword "${directive.keyword}" is not accepted for delegated work. Use Closes, Fixes, or Resolves.`,
+                );
+              }
+
+              const qualifiedRepository =
+                directive.owner && directive.repository
+                  ? `${directive.owner}/${directive.repository}`
+                  : null;
+
+              if (
+                qualifiedRepository &&
+                qualifiedRepository.toLowerCase() !== repository.nameWithOwner.toLowerCase()
+              ) {
+                return deny('The delegated closing reference must belong to this repository.');
+              }
+
+              if (
+                !/^[1-9]\d*$/.test(directive.numberText) ||
+                !Number.isSafeInteger(directive.number)
+              ) {
+                return deny('The delegated Issue number must be a positive safe integer without padding.');
+              }
+
+              const allClosings = pullRequest.allClosings;
+              const keywordClosings = pullRequest.keywordClosings;
+
+              if (allClosings?.totalCount !== 1 || allClosings.nodes?.length !== 1) {
+                return deny(
+                  `GitHub reports ${allClosings?.totalCount ?? 0} total closing Issues; exactly one is required.`,
+                );
+              }
+
+              if (
+                keywordClosings?.totalCount !== 1 ||
+                keywordClosings.nodes?.length !== 1
+              ) {
+                return deny(
+                  `GitHub reports ${keywordClosings?.totalCount ?? 0} keyword-derived closing Issues; exactly one is required.`,
+                );
+              }
+
+              const allClosingIssue = allClosings.nodes[0];
+              const keywordClosingIssue = keywordClosings.nodes[0];
+
+              if (
+                allClosingIssue.number !== keywordClosingIssue.number ||
+                allClosingIssue.repository?.id !== keywordClosingIssue.repository?.id
+              ) {
+                return deny(
+                  'The manual and keyword-derived GitHub closing relationships do not identify the same Issue.',
+                );
+              }
+
+              if (
+                keywordClosingIssue.repository?.id !== repository.id ||
+                keywordClosingIssue.repository?.nameWithOwner?.toLowerCase() !==
+                  repository.nameWithOwner.toLowerCase()
+              ) {
+                return deny('The delegated closing Issue must belong to this repository.');
+              }
+
+              if (keywordClosingIssue.number !== directive.number) {
+                return deny(
+                  `The PR body closes #${directive.number}, but GitHub resolved #${keywordClosingIssue.number}.`,
+                );
+              }
+
+              if (keywordClosingIssue.state !== 'OPEN') {
+                return deny(`Delegated Issue #${directive.number} must still be open.`);
+              }
+
+              if (keywordClosingIssue.labels?.pageInfo?.hasNextPage) {
+                return deny(
+                  `Delegated Issue #${directive.number} has too many labels to verify safely.`,
+                );
+              }
+
+              const hasJulesLabel = keywordClosingIssue.labels?.nodes?.some(
+                (label) => label.name.toLowerCase() === 'jules',
+              );
+
+              if (!hasJulesLabel) {
+                return deny(
+                  `Delegated Issue #${directive.number} does not carry the live jules label.`,
+                );
+              }
+
+              if (keywordClosingIssue.subIssues?.totalCount !== 0) {
+                return deny(
+                  `Delegated Issue #${directive.number} is a parent/Epic with sub-issues, not an independently actionable leaf.`,
+                );
+              }
+
+              return allow(
+                `Verified Jules pull request closes open delegated leaf Issue #${directive.number}.`,
+              );
+            };
+
+            const fixtureRepository = {
+              id: 'R_fixture',
+              nameWithOwner: 'fortemate/dicechess-evaluation-playground',
+            };
+
+            const fixtureIssue = (overrides = {}) => ({
+              number: 5,
+              state: 'OPEN',
+              repository: fixtureRepository,
+              labels: {
+                nodes: [{ name: 'jules' }],
+                pageInfo: { hasNextPage: false },
+              },
+              subIssues: { totalCount: 0 },
+              ...overrides,
+            });
+
+            const fixtureSnapshot = (overrides = {}) => {
+              const issue = Object.hasOwn(overrides, 'issue')
+                ? overrides.issue
+                : fixtureIssue();
+              const allClosings =
+                overrides.allClosings || closingConnection(issue ? [issue] : []);
+              const keywordClosings =
+                overrides.keywordClosings || closingConnection(issue ? [issue] : []);
+
+              return {
+                repository: {
+                  ...fixtureRepository,
+                  defaultBranchRef: { name: overrides.defaultBranch || 'main' },
+                  pullRequest: {
+                    headRefName: overrides.headRefName || 'jules-session-123',
+                    baseRefName: overrides.baseRefName || 'main',
+                    body: Object.hasOwn(overrides, 'body') ? overrides.body : 'Closes #5',
+                    author: overrides.author || {
+                      __typename: 'Bot',
+                      login: 'google-labs-jules',
+                    },
+                    allClosings,
+                    keywordClosings,
+                  },
+                },
+              };
+            };
+
+            const secondFixtureIssue = fixtureIssue({ number: 6 });
+            const closedFixtureIssue = fixtureIssue({ state: 'CLOSED' });
+            const nonDelegatedFixtureIssue = fixtureIssue({
+              labels: { nodes: [], pageInfo: { hasNextPage: false } },
+            });
+            const parentFixtureIssue = fixtureIssue({ subIssues: { totalCount: 2 } });
+            const foreignFixtureIssue = fixtureIssue({
+              repository: { id: 'R_foreign', nameWithOwner: 'fortemate/other-repository' },
+            });
+            const fixtureHumanAuthor = { __typename: 'User', login: 'rabestro' };
+
+            const fixtures = [
+              {
+                name: 'conventional branch without Issue ID',
+                expected: true,
+                snapshot: fixtureSnapshot({
+                  headRefName: 'ci/update-policy',
+                  body: '',
+                  author: fixtureHumanAuthor,
+                }),
+              },
+              {
+                name: 'conventional branch with exact Issue link',
+                expected: true,
+                snapshot: fixtureSnapshot({
+                  headRefName: 'ci/14-update-policy',
+                  body: 'Closes #14',
+                  author: fixtureHumanAuthor,
+                }),
+              },
+              {
+                name: 'conventional branch mismatch cannot use fallback',
+                expected: false,
+                expectedMessage: 'does not close that exact Issue',
+                snapshot: fixtureSnapshot({
+                  headRefName: 'ci/14-update-policy',
+                  body: 'Closes #5',
+                  author: fixtureHumanAuthor,
+                }),
+              },
+              {
+                name: 'conventional branch keeps exact no-colon behavior',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  headRefName: 'ci/14-update-policy',
+                  body: 'Closes: #14',
+                  author: fixtureHumanAuthor,
+                }),
+              },
+              {
+                name: 'verified Dependabot exception',
+                expected: true,
+                snapshot: fixtureSnapshot({
+                  headRefName: 'dependabot/npm_and_yarn/example-1.0.0',
+                  body: '',
+                  author: { __typename: 'Bot', login: 'dependabot' },
+                  issue: null,
+                }),
+              },
+              {
+                name: 'conventional-looking Jules branch still validates delegation',
+                expected: true,
+                snapshot: fixtureSnapshot({ headRefName: 'feat/generated-change-123' }),
+              },
+              {
+                name: 'conventional-looking Jules branch cannot omit delegation',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  headRefName: 'fix/generated-change-123',
+                  body: '',
+                }),
+              },
+              {
+                name: 'valid Jules Closes directive',
+                expected: true,
+                snapshot: fixtureSnapshot(),
+              },
+              {
+                name: 'uppercase colon Fixes directive',
+                expected: true,
+                snapshot: fixtureSnapshot({ body: 'FIXES: #5' }),
+              },
+              {
+                name: 'valid Resolves directive',
+                expected: true,
+                snapshot: fixtureSnapshot({ body: 'Resolves #5' }),
+              },
+              {
+                name: 'Related reference is not a closing directive',
+                expected: false,
+                expectedMessage: 'exactly one closing directive',
+                snapshot: fixtureSnapshot({ body: 'Related #5' }),
+              },
+              {
+                name: 'multiple local closing directives are ambiguous',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  body: 'Closes #5\nFixes #6',
+                  allClosings: closingConnection([fixtureIssue(), secondFixtureIssue]),
+                  keywordClosings: closingConnection([fixtureIssue(), secondFixtureIssue]),
+                }),
+              },
+              {
+                name: 'duplicate directives are rejected',
+                expected: false,
+                snapshot: fixtureSnapshot({ body: 'Closes #5\nCloses #5' }),
+              },
+              {
+                name: 'cross-repository directive is rejected',
+                expected: false,
+                expectedMessage: 'must belong to this repository',
+                snapshot: fixtureSnapshot({
+                  body: 'Closes fortemate/other-repository#5',
+                  issue: foreignFixtureIssue,
+                }),
+              },
+              {
+                name: 'local plus hidden cross-repository directive is rejected',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  body: 'Closes #5\nFixes fortemate/private-repository#6',
+                }),
+              },
+              {
+                name: 'manual link without keyword is rejected',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  body: 'Related #5',
+                  keywordClosings: closingConnection([]),
+                }),
+              },
+              {
+                name: 'unsupported official closing keyword is rejected',
+                expected: false,
+                snapshot: fixtureSnapshot({ body: 'Close #5' }),
+              },
+              {
+                name: 'closed delegated Issue is rejected',
+                expected: false,
+                expectedMessage: 'must still be open',
+                snapshot: fixtureSnapshot({ issue: closedFixtureIssue }),
+              },
+              {
+                name: 'Issue without jules is rejected',
+                expected: false,
+                expectedMessage: 'live jules label',
+                snapshot: fixtureSnapshot({ issue: nonDelegatedFixtureIssue }),
+              },
+              {
+                name: 'parent/Epic Issue is rejected',
+                expected: false,
+                expectedMessage: 'parent/Epic',
+                snapshot: fixtureSnapshot({ issue: parentFixtureIssue }),
+              },
+              {
+                name: 'missing Issue is rejected',
+                expected: false,
+                snapshot: fixtureSnapshot({ issue: null }),
+              },
+              {
+                name: 'non-Jules author is rejected',
+                expected: false,
+                expectedMessage: 'verified Jules App',
+                snapshot: fixtureSnapshot({
+                  author: { __typename: 'User', login: 'contributor' },
+                }),
+              },
+              {
+                name: 'non-default base is rejected',
+                expected: false,
+                snapshot: fixtureSnapshot({ baseRefName: 'release' }),
+              },
+              {
+                name: 'paginated labels fail closed',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  issue: fixtureIssue({
+                    labels: {
+                      nodes: [{ name: 'jules' }],
+                      pageInfo: { hasNextPage: true },
+                    },
+                  }),
+                }),
+              },
+              {
+                name: 'GitHub closing relationship must match body',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  keywordClosings: closingConnection([secondFixtureIssue]),
+                }),
+              },
+              {
+                name: 'code-block example is not a GitHub closing relationship',
+                expected: false,
+                snapshot: fixtureSnapshot({
+                  body: '```\nCloses #5\n```',
+                  allClosings: closingConnection([]),
+                  keywordClosings: closingConnection([]),
+                }),
+              },
+              {
+                name: 'non-closing reference may accompany one valid close',
+                expected: true,
+                snapshot: fixtureSnapshot({ body: 'Closes #5\n\nRelated #1' }),
+              },
+              {
+                name: 'qualified same-repository directive is accepted',
+                expected: true,
+                snapshot: fixtureSnapshot({
+                  body: 'Closes fortemate/dicechess-evaluation-playground#5',
+                }),
+              },
+            ];
+
+            for (const fixture of fixtures) {
+              const result = validatePolicy(fixture.snapshot);
+
+              if (result.allowed !== fixture.expected) {
+                throw new Error(
+                  `PR policy fixture "${fixture.name}" expected ${fixture.expected ? 'allow' : 'deny'}, got ${result.allowed ? 'allow' : 'deny'}: ${result.message}`,
+                );
+              }
+
+              if (
+                fixture.expectedMessage &&
+                !result.message.includes(fixture.expectedMessage)
+              ) {
+                throw new Error(
+                  `PR policy fixture "${fixture.name}" expected an actionable message containing "${fixture.expectedMessage}", got: ${result.message}`,
+                );
               }
             }
 
-            console.log('PR policy OK.');
+            core.info(`PR policy fixtures passed (${fixtures.length} cases).`);
+
+            // Preserve the existing payload-only path for human conventional and Dependabot PRs.
+            // Every Jules candidate needs the additional delegated-Issue API verification.
+            const eventPullRequest = context.payload.pull_request;
+
+            if (!eventPullRequest) {
+              core.setFailed('The pull_request event payload is unavailable.');
+              return;
+            }
+
+            const eventHeadRef = eventPullRequest.head.ref;
+            const eventAuthor = eventPullRequest.user.login;
+            const eventBody = eventPullRequest.body || '';
+
+            if (
+              eventAuthor === 'dependabot[bot]' &&
+              eventHeadRef.startsWith('dependabot/')
+            ) {
+              core.info('Skipping validation for Dependabot branch.');
+              return;
+            }
+
+            const eventIsJules =
+              eventPullRequest.user.type === 'Bot' &&
+              eventAuthor === 'google-labs-jules[bot]';
+
+            if (!eventIsJules && conventionalBranchPattern.test(eventHeadRef)) {
+              const eventBranchIssueMatch = eventHeadRef.match(
+                /^[a-z]+\/(?:issue-)?(\d+)-/,
+              );
+
+              if (eventBranchIssueMatch) {
+                const eventIssueId = eventBranchIssueMatch[1];
+                const eventIssuePattern = new RegExp(
+                  `(Closes|Resolves|Fixes)\\s+#${eventIssueId}\\b`,
+                  'i',
+                );
+
+                if (!eventIssuePattern.test(eventBody)) {
+                  core.setFailed(
+                    `Branch "${eventHeadRef}" references Issue #${eventIssueId}, but the PR body does not close that exact Issue.`,
+                  );
+                  return;
+                }
+              }
+
+              core.info('Conventional branch policy passed.');
+              return;
+            }
+
+            if (!eventIsJules) {
+              core.setFailed(
+                `Branch "${eventHeadRef}" is non-conventional and was not opened by the verified Jules App.`,
+              );
+              return;
+            }
+
+            // This proves Issue state at check time. GitHub does not emit pull_request events
+            // when Issue labels or sub-issues change, so human-controlled merge remains the
+            // final guard against a later mutation. Merge-time enforcement needs a GitHub App.
+
+            const query = `
+              query PullRequestPolicy($owner: String!, $name: String!, $number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  id
+                  nameWithOwner
+                  defaultBranchRef {
+                    name
+                  }
+                  pullRequest(number: $number) {
+                    headRefName
+                    baseRefName
+                    body
+                    author {
+                      __typename
+                      login
+                    }
+                    allClosings: closingIssuesReferences(first: 2) {
+                      totalCount
+                      nodes {
+                        ...ClosingIssue
+                      }
+                    }
+                    keywordClosings: closingIssuesReferences(
+                      first: 2
+                      excludeUserLinked: true
+                    ) {
+                      totalCount
+                      nodes {
+                        ...ClosingIssue
+                      }
+                    }
+                  }
+                }
+              }
+
+              fragment ClosingIssue on Issue {
+                number
+                state
+                repository {
+                  id
+                  nameWithOwner
+                }
+                labels(first: 100) {
+                  nodes {
+                    name
+                  }
+                  pageInfo {
+                    hasNextPage
+                  }
+                }
+                subIssues(first: 1) {
+                  totalCount
+                }
+              }
+            `;
+
+            let snapshot;
+
+            try {
+              snapshot = await github.graphql(query, {
+                owner: context.repo.owner,
+                name: context.repo.repo,
+                number: context.payload.pull_request.number,
+              });
+            } catch (error) {
+              core.setFailed(
+                `Unable to read current pull request and Issue metadata: ${error.message}`,
+              );
+              return;
+            }
+
+            const result = validatePolicy(snapshot);
+
+            if (!result.allowed) {
+              core.setFailed(result.message);
+              return;
+            }
+
+            core.info(result.message);
