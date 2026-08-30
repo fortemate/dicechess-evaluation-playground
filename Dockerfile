@@ -49,6 +49,7 @@ COPY --from=production-deps --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /app/build ./build
 COPY --chown=app:app package.json ./
 COPY --chown=app:app LICENSE THIRD_PARTY_NOTICES.md ./licenses/
+COPY --chown=app:app LICENSES/chessground-GPL-3.0-or-later.txt ./licenses/third-party/chessground-GPL-3.0-or-later.txt
 COPY --from=build --chown=app:app /app/node_modules/svelte/LICENSE.md ./licenses/third-party/svelte-LICENSE.md
 COPY --from=build --chown=app:app /app/node_modules/@sveltejs/kit/LICENSE ./licenses/third-party/sveltekit-LICENSE
 COPY --from=build --chown=app:app /app/node_modules/@sveltejs/adapter-node/LICENSE ./licenses/third-party/adapter-node-LICENSE

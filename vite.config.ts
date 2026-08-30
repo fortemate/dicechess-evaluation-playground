@@ -1,9 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [tailwindcss(), sveltekit(), svelteTesting()],
 	test: {
 		expect: { requireAssertions: true },
 		coverage: {
@@ -25,7 +26,15 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					exclude: ['src/lib/components/**/*.{test,spec}.{js,ts}'],
+				},
+			},
+			{
+				extends: './vite.config.ts',
+				test: {
+					name: 'components',
+					environment: 'jsdom',
+					include: ['src/lib/components/**/*.{test,spec}.{js,ts}'],
 				},
 			},
 		],

@@ -2,7 +2,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	import PositionEditor from '$lib/components/PositionEditor.svelte';
+	import { serializeFen } from '$lib/position/fen.js';
+	import { INITIAL_FEN, type PositionState } from '$lib/position/model.js';
+
+	let currentFen = $state(INITIAL_FEN);
+
+	function handlePositionChange(state: PositionState): void {
+		currentFen = serializeFen(state);
+	}
 </script>
 
 <svelte:head>
@@ -14,20 +22,23 @@
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
-<main>
-	<section class="baseline-card" aria-labelledby="page-title">
+<main class="playground-page">
+	<header class="page-header" aria-labelledby="page-title">
 		<p class="eyebrow">Fortemate internal tooling</p>
 		<h1 id="page-title">Evaluation Playground</h1>
 		<p class="lede">
-			The protected position editor and evaluator BFF will be implemented in the next Epic
-			sub-issues.
+			Construct a Dice Chess position with every semantic field explicit. Nothing is evaluated until
+			a later, deliberate request.
 		</p>
+	</header>
 
-		<div class="status" aria-label="Repository baseline status">
-			<span aria-hidden="true"></span>
-			Engineering baseline ready
+	<PositionEditor onchange={handlePositionChange} />
+
+	<section class="state-preview" aria-labelledby="state-preview-title">
+		<div>
+			<p class="eyebrow">Current explicit state</p>
+			<h2 id="state-preview-title">Canonical evaluation FEN</h2>
 		</div>
-
-		<a href={resolve('/health')}>View health endpoint</a>
+		<output aria-live="polite">{currentFen}</output>
 	</section>
 </main>
