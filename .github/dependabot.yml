@@ -1,0 +1,46 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: '08:00'
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    assignees: [rabestro]
+    rebase-strategy: auto
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      development-minor-and-patch:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: '08:00'
+    open-pull-requests-limit: 5
+    labels: [ci-cd]
+    assignees: [rabestro]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: thursday
+      time: '08:00'
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    assignees: [rabestro]
+    commit-message:
+      prefix: chore
