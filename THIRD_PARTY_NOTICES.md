@@ -22,13 +22,14 @@ The exact dependency graph and package license metadata are recorded in `package
 
 `src/lib/assets/favicon.svg` is the Svelte logo retained from the Svelte project scaffold and is covered by the Svelte MIT notice listed above.
 
-## Chessground decision
+## Chessground
 
-Chessground is approved for the future editor but is **not distributed by the current revision**.
+The position editor distributes Chessground through a playground-owned adapter.
 
 - Package: `@lichess-org/chessground@10.1.1`
-- Upstream: <https://github.com/lichess-org/chessground/tree/v10.1.1>
+- Reviewed upstream commit: <https://github.com/lichess-org/chessground/tree/4d7e91bb02bd7ed2796aac2c1956c9552b323e7c>
 - Copyright: Lichess Team
 - License: `GPL-3.0-or-later`
+- Preserved license text: [`LICENSES/chessground-GPL-3.0-or-later.txt`](LICENSES/chessground-GPL-3.0-or-later.txt)
 
-The pull request that first adds Chessground must preserve its exact upstream notice and full GPL license text under `LICENSES/`, make that source and license available with the distributed application, and update this file if the resolved version differs. See [ADR 0001](docs/decisions/0001-board-editor.md).
+Chessground retains its upstream license identity and is not described as Fortemate-authored or relicensed under AGPL. The exact dependency graph and resolved package integrity are recorded in `package-lock.json`. See [ADR 0001](docs/decisions/0001-board-editor.md) for the approved reuse boundary.
