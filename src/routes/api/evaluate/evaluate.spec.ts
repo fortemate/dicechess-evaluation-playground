@@ -279,7 +279,7 @@ describe('POST /api/evaluate', () => {
 		});
 	});
 
-	it('rejects invalid non-string profile field', async () => {
+	it('rejects non-string or blank profile fields', async () => {
 		const handler = _createEvaluateHandler({ config: testConfig });
 		const event = createMockEvent({
 			body: JSON.stringify({
@@ -292,7 +292,21 @@ describe('POST /api/evaluate', () => {
 		expect(response.status).toBe(422);
 		await expect(response.json()).resolves.toEqual({
 			code: 'INVALID_REQUEST',
-			error: 'Field "profile" must be a string if provided',
+			error: 'Field "profile" must be a non-empty string if provided',
+		});
+
+		const blankProfileResponse = await handler(
+			createMockEvent({
+				body: JSON.stringify({
+					fen: '8/8/8/8/8/8/8/K6k w - -',
+					profile: '   ',
+				}),
+			}),
+		);
+		expect(blankProfileResponse.status).toBe(422);
+		await expect(blankProfileResponse.json()).resolves.toEqual({
+			code: 'INVALID_REQUEST',
+			error: 'Field "profile" must be a non-empty string if provided',
 		});
 	});
 
@@ -331,7 +345,7 @@ describe('POST /api/evaluate', () => {
 		expect(responseBusy.status).toBe(429);
 		await expect(responseBusy.json()).resolves.toEqual({
 			code: 'ANALYSIS_BUSY',
-			error: 'Too many analyses',
+			error: 'Too many evaluation analyses are currently in progress',
 		});
 
 		const mockClientInternalWithId = {
@@ -358,11 +372,11 @@ describe('POST /api/evaluate', () => {
 			}),
 		);
 		expect(responseInternalWithId.status).toBe(500);
-		await expect(responseInternalWithId.json()).resolves.toEqual({
-			code: 'INTERNAL_FAILURE',
-			error: 'An internal error occurred.',
-			correlationId: 'custom-corr-id',
-		});
+		const internalWithIdJson = await responseInternalWithId.json();
+		expect(internalWithIdJson.code).toBe('INTERNAL_FAILURE');
+		expect(internalWithIdJson.error).toBe('An internal error occurred.');
+		expect(internalWithIdJson.correlationId).toBeDefined();
+		expect(internalWithIdJson.correlationId).not.toBe('custom-corr-id');
 
 		const mockClientInternalWithoutId = {
 			evaluatePosition: vi
@@ -386,6 +400,28 @@ describe('POST /api/evaluate', () => {
 		const json = await responseInternalWithoutId.json();
 		expect(json.code).toBe('INTERNAL_FAILURE');
 		expect(json.correlationId).toBeDefined();
+	});
+
+	it('never exposes evaluator credentials, origin, or upstream error details', async () => {
+		const sensitiveDetail = `${testConfig.evaluatorOrigin} ${testConfig.evaluatorBearerToken}`;
+		const mockClient = {
+			evaluatePosition: vi
+				.fn()
+				.mockRejectedValue(new EvaluationClientError(503, 'MODEL_UNAVAILABLE', sensitiveDetail)),
+		} as unknown as EvaluationClient;
+		const handler = _createEvaluateHandler({ config: testConfig, client: mockClient });
+		const response = await handler(
+			createMockEvent({
+				body: JSON.stringify({ fen: '8/8/8/8/8/8/8/K6k w - -' }),
+			}),
+		);
+
+		expect(response.status).toBe(503);
+		const serializedResponse = JSON.stringify(await response.json());
+		expect(serializedResponse).not.toContain(testConfig.evaluatorOrigin);
+		expect(serializedResponse).not.toContain(testConfig.evaluatorBearerToken);
+		expect(serializedResponse).not.toContain(sensitiveDetail);
+		expect(serializedResponse).toContain('Evaluation model is currently unavailable');
 	});
 
 	it('handles unexpected thrown non-EvaluationClientError exceptions as 500 INTERNAL_FAILURE', async () => {

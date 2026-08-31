@@ -48,7 +48,43 @@ export interface EvaluationClientOptions {
 
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/i;
 
-function validateUpstreamSuccessResponse(data: unknown): UpstreamPositionEvalResponse {
+const PUBLIC_ERROR_MESSAGES: Record<EvaluationErrorCode, string> = {
+	INVALID_REQUEST: 'Invalid evaluation request',
+	INVALID_FEN: 'Invalid FEN',
+	INVALID_DICE: 'Invalid dice value',
+	INVALID_PROFILE: 'Invalid evaluation profile',
+	ILLEGAL_PLAYED_TURN: 'Illegal played turn',
+	AUTHENTICATION_FAILURE: 'Invalid or missing authentication credentials',
+	MODEL_UNAVAILABLE: 'Evaluation model is currently unavailable',
+	MODEL_NOT_READY: 'Evaluation model is not ready',
+	MANIFEST_NOT_FOUND: 'Evaluation model manifest is unavailable',
+	ANALYSIS_BUSY: 'Too many evaluation analyses are currently in progress',
+	DEADLINE_EXCEEDED: 'Evaluation deadline exceeded',
+	INTERNAL_FAILURE: 'An internal error occurred.',
+	PAYLOAD_TOO_LARGE: 'Request payload too large',
+};
+
+export function getPublicEvaluationErrorMessage(code: EvaluationErrorCode): string {
+	return PUBLIC_ERROR_MESSAGES[code];
+}
+
+function clientError(
+	status: number,
+	code: EvaluationErrorCode,
+	correlationId?: string,
+): EvaluationClientError {
+	return new EvaluationClientError(
+		status,
+		code,
+		getPublicEvaluationErrorMessage(code),
+		correlationId,
+	);
+}
+
+function validateUpstreamSuccessResponse(
+	data: unknown,
+	expectedFen: string,
+): UpstreamPositionEvalResponse {
 	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
 		throw new EvaluationClientError(
 			500,
@@ -114,7 +150,54 @@ function validateUpstreamSuccessResponse(data: unknown): UpstreamPositionEvalRes
 		);
 	}
 
+	const expectedSideToMove = expectedFen.split(' ')[1];
+	if (record.fen !== expectedFen || record.sideToMove !== expectedSideToMove) {
+		throw clientError(500, 'INTERNAL_FAILURE');
+	}
+
 	return data as UpstreamPositionEvalResponse;
+}
+
+interface UpstreamErrorBody {
+	code?: string;
+}
+
+async function readUpstreamErrorBody(response: Response): Promise<UpstreamErrorBody> {
+	try {
+		return (await response.json()) as UpstreamErrorBody;
+	} catch {
+		return {};
+	}
+}
+
+function mapUpstreamError(response: Response, errorBody: UpstreamErrorBody): EvaluationClientError {
+	const code = errorBody.code ?? '';
+	if (response.status === 422) {
+		return code === 'INVALID_PROFILE'
+			? clientError(422, 'INVALID_PROFILE')
+			: clientError(422, 'INVALID_FEN');
+	}
+	if (response.status === 429 || code === 'ANALYSIS_BUSY') {
+		return clientError(429, 'ANALYSIS_BUSY');
+	}
+	if (response.status === 503 || code === 'MODEL_UNAVAILABLE' || code === 'MODEL_NOT_READY') {
+		return clientError(503, 'MODEL_UNAVAILABLE');
+	}
+	if (response.status === 504 || code === 'DEADLINE_EXCEEDED') {
+		return clientError(504, 'DEADLINE_EXCEEDED');
+	}
+	if (response.status === 413 || code === 'PAYLOAD_TOO_LARGE') {
+		return clientError(413, 'PAYLOAD_TOO_LARGE');
+	}
+	return clientError(500, 'INTERNAL_FAILURE');
+}
+
+function mapTransportError(error: unknown): EvaluationClientError {
+	if (error instanceof EvaluationClientError) return error;
+	if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+		return clientError(504, 'DEADLINE_EXCEEDED');
+	}
+	return clientError(503, 'MODEL_UNAVAILABLE');
 }
 
 export class EvaluationClient {
@@ -131,135 +214,47 @@ export class EvaluationClient {
 		return this.activeCount;
 	}
 
+	private async requestPosition(
+		options: EvaluatePositionOptions,
+	): Promise<UpstreamPositionEvalResponse> {
+		const endpoint = `${this.config.evaluatorOrigin}/api/v1/evaluate/position`;
+		const payload: { fen: string; profile?: string } = { fen: options.fen };
+		if (options.profile !== undefined) payload.profile = options.profile;
+
+		const response = await this.fetchFn(endpoint, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${this.config.evaluatorBearerToken}`,
+				'Content-Type': 'application/json',
+				Accept: 'application/json',
+			},
+			body: JSON.stringify(payload),
+			signal: AbortSignal.timeout(this.config.evaluatorTimeoutMs),
+		});
+
+		if (!response.ok) {
+			throw mapUpstreamError(response, await readUpstreamErrorBody(response));
+		}
+
+		let rawJson: unknown;
+		try {
+			rawJson = await response.json();
+		} catch {
+			throw clientError(500, 'INTERNAL_FAILURE');
+		}
+		return validateUpstreamSuccessResponse(rawJson, options.fen);
+	}
+
 	async evaluatePosition(options: EvaluatePositionOptions): Promise<UpstreamPositionEvalResponse> {
 		if (this.activeCount >= this.config.maxConcurrentEvaluations) {
-			throw new EvaluationClientError(
-				429,
-				'ANALYSIS_BUSY',
-				'Too many evaluation analyses are currently in progress',
-			);
+			throw clientError(429, 'ANALYSIS_BUSY');
 		}
 
 		this.activeCount++;
 		try {
-			const endpoint = `${this.config.evaluatorOrigin}/api/v1/evaluate/position`;
-			const payload: { fen: string; profile?: string } = {
-				fen: options.fen,
-			};
-			if (options.profile) {
-				payload.profile = options.profile;
-			}
-
-			const response = await this.fetchFn(endpoint, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${this.config.evaluatorBearerToken}`,
-					'Content-Type': 'application/json',
-					Accept: 'application/json',
-				},
-				body: JSON.stringify(payload),
-				signal: AbortSignal.timeout(this.config.evaluatorTimeoutMs),
-			});
-
-			if (response.ok) {
-				let rawJson: unknown;
-				try {
-					rawJson = await response.json();
-				} catch {
-					throw new EvaluationClientError(
-						500,
-						'INTERNAL_FAILURE',
-						'Invalid non-JSON response from evaluation service',
-					);
-				}
-				return validateUpstreamSuccessResponse(rawJson);
-			}
-
-			let errorBody: { code?: string; error?: string; correlationId?: string } = {};
-			try {
-				errorBody = (await response.json()) as {
-					code?: string;
-					error?: string;
-					correlationId?: string;
-				};
-			} catch {
-				// Non-JSON response body
-			}
-
-			const codeStr = errorBody.code ?? '';
-			const message = errorBody.error;
-
-			if (response.status === 422) {
-				if (codeStr === 'INVALID_PROFILE') {
-					throw new EvaluationClientError(
-						422,
-						'INVALID_PROFILE',
-						message || 'Invalid evaluation profile',
-					);
-				}
-				throw new EvaluationClientError(422, 'INVALID_FEN', message || 'Invalid FEN');
-			}
-
-			if (response.status === 429 || codeStr === 'ANALYSIS_BUSY') {
-				throw new EvaluationClientError(
-					429,
-					'ANALYSIS_BUSY',
-					message || 'Too many evaluation analyses are currently in progress',
-				);
-			}
-
-			if (
-				response.status === 503 ||
-				codeStr === 'MODEL_UNAVAILABLE' ||
-				codeStr === 'MODEL_NOT_READY'
-			) {
-				throw new EvaluationClientError(
-					503,
-					'MODEL_UNAVAILABLE',
-					message || 'Evaluation model is currently unavailable',
-				);
-			}
-
-			if (response.status === 504 || codeStr === 'DEADLINE_EXCEEDED') {
-				throw new EvaluationClientError(
-					504,
-					'DEADLINE_EXCEEDED',
-					message || 'Evaluation deadline exceeded',
-				);
-			}
-
-			if (response.status === 413 || codeStr === 'PAYLOAD_TOO_LARGE') {
-				throw new EvaluationClientError(
-					413,
-					'PAYLOAD_TOO_LARGE',
-					message || 'Request payload too large',
-				);
-			}
-
-			// Map upstream 401/403 or other unexpected status codes to 500 INTERNAL_FAILURE without leaking credentials
-			throw new EvaluationClientError(
-				500,
-				'INTERNAL_FAILURE',
-				'An internal error occurred.',
-				errorBody.correlationId,
-			);
+			return await this.requestPosition(options);
 		} catch (error) {
-			if (error instanceof EvaluationClientError) {
-				throw error;
-			}
-
-			if (
-				error instanceof Error &&
-				(error.name === 'TimeoutError' || error.name === 'AbortError')
-			) {
-				throw new EvaluationClientError(504, 'DEADLINE_EXCEEDED', 'Evaluation deadline exceeded');
-			}
-
-			throw new EvaluationClientError(
-				503,
-				'MODEL_UNAVAILABLE',
-				'Evaluation service is unavailable or unreachable',
-			);
+			throw mapTransportError(error);
 		} finally {
 			this.activeCount--;
 		}

@@ -33,6 +33,7 @@ describe('parseByteSize', () => {
 		expect(() => parseByteSize('-10K', 65536, 'SIZE')).toThrow('Invalid SIZE');
 		expect(() => parseByteSize('abc', 65536, 'SIZE')).toThrow('Invalid SIZE');
 		expect(() => parseByteSize('64GB', 65536, 'SIZE')).toThrow('Invalid SIZE');
+		expect(() => parseByteSize('KB', 65536, 'SIZE')).toThrow('Invalid SIZE');
 	});
 });
 

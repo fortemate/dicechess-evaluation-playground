@@ -6,7 +6,8 @@ import type { ServerConfig } from './config.js';
 
 export const CF_ACCESS_HEADER = 'cf-access-jwt-assertion';
 
-const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost']);
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', 'localhost']);
+const IPV4_MAPPED_IPV6_PREFIX = '::ffff:';
 
 export interface AuthResult {
 	authenticated: boolean;
@@ -18,7 +19,11 @@ export interface AuthResult {
 export function isLoopbackAddress(address: string | undefined): boolean {
 	if (!address) return false;
 	const trimmed = address.trim().toLowerCase();
-	return LOOPBACK_ADDRESSES.has(trimmed);
+	if (LOOPBACK_ADDRESSES.has(trimmed)) return true;
+	return (
+		trimmed.startsWith(IPV4_MAPPED_IPV6_PREFIX) &&
+		LOOPBACK_ADDRESSES.has(trimmed.slice(IPV4_MAPPED_IPV6_PREFIX.length))
+	);
 }
 
 export type KeyResolver = JWTVerifyGetKey;
@@ -83,6 +88,7 @@ export class CloudflareAccessValidator {
 				issuer: this.config.cfAccessTeamDomain,
 				audience: this.config.cfAccessAud,
 				algorithms: ['RS256'],
+				requiredClaims: ['exp'],
 			});
 
 			return {

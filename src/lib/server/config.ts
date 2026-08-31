@@ -41,19 +41,23 @@ export function parseByteSize(
 		return defaultValue;
 	}
 	const trimmed = value.trim();
-	const match = /^(\d+)\s*(k|kb|m|mb|b)?$/i.exec(trimmed);
-	if (!match) {
+	const normalized = trimmed.toLowerCase();
+	const unit = ['kb', 'mb', 'k', 'm', 'b'].find((candidate) => normalized.endsWith(candidate));
+	const numberPart = (unit ? normalized.slice(0, -unit.length) : normalized).trimEnd();
+	const containsOnlyDigits =
+		numberPart.length > 0 &&
+		[...numberPart].every((character) => character >= '0' && character <= '9');
+	if (!containsOnlyDigits) {
 		throw new Error(
 			`Invalid ${name}: expected a positive integer or byte size string, got '${value}'`,
 		);
 	}
-	const num = Number(match[1]);
+	const num = Number(numberPart);
 	if (!Number.isInteger(num) || num <= 0) {
 		throw new Error(
 			`Invalid ${name}: expected a positive integer or byte size string, got '${value}'`,
 		);
 	}
-	const unit = match[2]?.toLowerCase();
 	if (unit === 'k' || unit === 'kb') {
 		return num * 1024;
 	}

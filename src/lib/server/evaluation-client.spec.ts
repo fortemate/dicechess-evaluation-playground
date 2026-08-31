@@ -92,8 +92,8 @@ describe('EvaluationClient', () => {
 		});
 
 		// Start two concurrent evaluations (max is 2)
-		const p1 = client.evaluatePosition({ fen: 'fen1' });
-		const p2 = client.evaluatePosition({ fen: 'fen2' });
+		const p1 = client.evaluatePosition({ fen: sampleSuccessResponse.fen });
+		const p2 = client.evaluatePosition({ fen: sampleSuccessResponse.fen });
 
 		// Third concurrent evaluation must fail with 429 ANALYSIS_BUSY immediately
 		await expect(client.evaluatePosition({ fen: 'fen3' })).rejects.toThrowError(
@@ -195,6 +195,18 @@ describe('EvaluationClient', () => {
 				provenance: { ...sampleSuccessResponse.provenance, modelSha256: 'short-sha' },
 			}).evaluatePosition({ fen: 'fen' }),
 		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 9. A structurally valid response must still belong to the requested position.
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, fen: '8/8/8/8/8/8/8/K6k w - -' }).evaluatePosition(
+				{ fen: sampleSuccessResponse.fen },
+			),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, sideToMove: 'b' }).evaluatePosition({
+				fen: sampleSuccessResponse.fen,
+			}),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
 	});
 
 	it('maps upstream 422 errors to INVALID_FEN or INVALID_PROFILE with custom or default messages', async () => {
@@ -214,7 +226,7 @@ describe('EvaluationClient', () => {
 			expect.objectContaining({
 				status: 422,
 				code: 'INVALID_FEN',
-				message: 'Invalid FEN: malformed rank',
+				message: 'Invalid FEN',
 			}),
 		);
 
@@ -250,7 +262,7 @@ describe('EvaluationClient', () => {
 			expect.objectContaining({
 				status: 422,
 				code: 'INVALID_PROFILE',
-				message: 'Unknown profile: test-profile',
+				message: 'Invalid evaluation profile',
 			}),
 		);
 
@@ -284,7 +296,7 @@ describe('EvaluationClient', () => {
 			expect.objectContaining({
 				status: 429,
 				code: 'ANALYSIS_BUSY',
-				message: 'Over capacity',
+				message: 'Too many evaluation analyses are currently in progress',
 			}),
 		);
 
@@ -319,7 +331,7 @@ describe('EvaluationClient', () => {
 			expect.objectContaining({
 				status: 503,
 				code: 'MODEL_UNAVAILABLE',
-				message: 'Model not loaded',
+				message: 'Evaluation model is currently unavailable',
 			}),
 		);
 
@@ -356,7 +368,7 @@ describe('EvaluationClient', () => {
 			expect.objectContaining({
 				status: 504,
 				code: 'DEADLINE_EXCEEDED',
-				message: 'Evaluation timeout',
+				message: 'Evaluation deadline exceeded',
 			}),
 		);
 
@@ -391,7 +403,7 @@ describe('EvaluationClient', () => {
 			expect.objectContaining({
 				status: 413,
 				code: 'PAYLOAD_TOO_LARGE',
-				message: 'Body exceeds limit',
+				message: 'Request payload too large',
 			}),
 		);
 

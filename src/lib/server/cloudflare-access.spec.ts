@@ -153,6 +153,28 @@ describe('CloudflareAccessValidator', () => {
 		expect(result.error).toBe('Invalid or missing authentication credentials');
 	});
 
+	it('rejects JWTs without an expiration claim', async () => {
+		const { publicKey, privateKey } = await generateKeyPair('RS256');
+		const publicJwk = await exportJWK(publicKey);
+		publicJwk.kid = 'test-key-id';
+		publicJwk.alg = 'RS256';
+
+		const localJwks = createLocalJWKSet({ keys: [publicJwk] });
+		const validator = new CloudflareAccessValidator(testConfig, { keyResolver: localJwks });
+		const jwtWithoutExpiration = await new SignJWT({ sub: 'user-123' })
+			.setProtectedHeader({ alg: 'RS256', kid: 'test-key-id' })
+			.setIssuer(testConfig.cfAccessTeamDomain)
+			.setAudience(testConfig.cfAccessAud)
+			.setIssuedAt()
+			.sign(privateKey);
+
+		const result = await validator.validateRequest({
+			[CF_ACCESS_HEADER]: jwtWithoutExpiration,
+		});
+		expect(result.authenticated).toBe(false);
+		expect(result.error).toBe('Invalid or missing authentication credentials');
+	});
+
 	it('rejects JWTs with invalid audience or issuer', async () => {
 		const { publicKey, privateKey } = await generateKeyPair('RS256');
 		const publicJwk = await exportJWK(publicKey);
