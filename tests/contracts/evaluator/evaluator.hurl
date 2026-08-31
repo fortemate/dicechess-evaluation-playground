@@ -36,6 +36,7 @@ Authorization: Bearer {{EVALUATOR_BEARER_TOKEN}}
 HTTP 200
 [Asserts]
 jsonpath "$.modelId" == "{{EXPECTED_MODEL_ID}}"
+jsonpath "$.modelSha256" matches /^[0-9a-fA-F]{64}$/
 jsonpath "$.modelSha256" == "{{EXPECTED_MODEL_SHA256}}"
 
 # Protected position evaluation invalid FEN rejection
@@ -63,4 +64,5 @@ jsonpath "$.sideToMove" == "w"
 jsonpath "$.winProbability" >= 0.0
 jsonpath "$.winProbability" <= 1.0
 jsonpath "$.provenance.modelId" == "{{EXPECTED_MODEL_ID}}"
+jsonpath "$.provenance.modelSha256" matches /^[0-9a-fA-F]{64}$/
 jsonpath "$.provenance.modelSha256" == "{{EXPECTED_MODEL_SHA256}}"

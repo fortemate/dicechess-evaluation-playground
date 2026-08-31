@@ -49,7 +49,7 @@ The evaluator contract suite validates public liveness/readiness (`/health`, `/r
 mise run test:contracts:evaluator
 ```
 
-By default, the task runs against a deterministic local fixture server. To test an external candidate (such as on Aurora), pass configuration via environment variables:
+By default, the task runs against a deterministic local fixture server. To test an external candidate (such as on Aurora), pass all four required configuration values via environment variables:
 
 ```sh
 EVALUATOR_ORIGIN="https://evaluator.internal:8080" \
@@ -58,6 +58,8 @@ EXPECTED_MODEL_ID="your-model-id" \
 EXPECTED_MODEL_SHA256="your-64-hex-sha256" \
 mise run test:contracts:evaluator
 ```
+
+External mode fails before making a request if any required value is missing or if the expected digest is not exactly 64 hexadecimal characters. The origin and bearer token are passed to Hurl as secrets so that failure diagnostics redact them.
 
 The pre-commit hook scans staged changes for secrets, formats supported staged files, and validates changed GitHub Actions workflows. The pre-push hook runs `mise run check`.
 

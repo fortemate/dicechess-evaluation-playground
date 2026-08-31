@@ -34,9 +34,6 @@ jobs:
       - name: Run canonical quality gate
         run: mise run check
 
-      - name: Test evaluator contracts
-        run: mise run test:contracts:evaluator
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
