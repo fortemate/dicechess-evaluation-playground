@@ -65,4 +65,12 @@ test('serves the adapter-node application and health endpoint', async ({ page, r
 		status: 'ok',
 		service: 'dicechess-evaluation-playground',
 	});
+
+	const unauthenticatedEvaluateResponse = await request.post('/api/evaluate', {
+		data: { fen: '8/8/8/8/8/8/8/K6k w - -' },
+	});
+	expect(unauthenticatedEvaluateResponse.status()).toBe(401);
+	await expect(unauthenticatedEvaluateResponse.json()).resolves.toMatchObject({
+		code: 'AUTHENTICATION_FAILURE',
+	});
 });
