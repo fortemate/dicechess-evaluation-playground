@@ -2,14 +2,20 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 
 <script lang="ts">
+	import EvaluationPanel from '$lib/components/EvaluationPanel.svelte';
 	import PositionEditor from '$lib/components/PositionEditor.svelte';
 	import { serializeFen } from '$lib/position/fen.js';
 	import { INITIAL_FEN, type PositionState } from '$lib/position/model.js';
 
 	let currentFen = $state(INITIAL_FEN);
+	let positionReady = $state(true);
 
 	function handlePositionChange(state: PositionState): void {
 		currentFen = serializeFen(state);
+	}
+
+	function handlePositionValidityChange(valid: boolean): void {
+		positionReady = valid;
 	}
 </script>
 
@@ -28,11 +34,11 @@
 		<h1 id="page-title">Evaluation Playground</h1>
 		<p class="lede">
 			Construct a Dice Chess position with every semantic field explicit. Nothing is evaluated until
-			a later, deliberate request.
+			you deliberately press Evaluate position.
 		</p>
 	</header>
 
-	<PositionEditor onchange={handlePositionChange} />
+	<PositionEditor onchange={handlePositionChange} onvaliditychange={handlePositionValidityChange} />
 
 	<section class="state-preview" aria-labelledby="state-preview-title">
 		<div>
@@ -41,4 +47,6 @@
 		</div>
 		<output aria-live="polite">{currentFen}</output>
 	</section>
+
+	<EvaluationPanel fen={currentFen} valid={positionReady} />
 </main>

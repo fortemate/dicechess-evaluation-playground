@@ -36,9 +36,10 @@
 
 	interface Props {
 		onchange?: (state: PositionState) => void;
+		onvaliditychange?: (valid: boolean) => void;
 	}
 
-	let { onchange }: Props = $props();
+	let { onchange, onvaliditychange }: Props = $props();
 
 	const startingState = parseFen(INITIAL_FEN);
 	let positionState = $state<PositionState>({ ...startingState });
@@ -82,12 +83,15 @@
 		const validation = validatePositionState(nextState);
 		if (!validation.valid) {
 			boardError = validation.error ?? 'The position is invalid.';
+			onvaliditychange?.(false);
 			return false;
 		}
 
 		positionState = { ...nextState };
 		fenDraft = serializeFen(positionState);
 		enPassantDraft = positionState.enPassant;
+		fenError = '';
+		enPassantError = '';
 		boardError = '';
 
 		if (options.syncBoard !== false) {
@@ -95,6 +99,7 @@
 		}
 
 		onchange?.({ ...positionState });
+		onvaliditychange?.(true);
 		if (options.message) {
 			statusMessage = options.message;
 		}
@@ -113,6 +118,7 @@
 		const validation = validateFen(fenDraft);
 		if (!validation.valid) {
 			fenError = validation.error ?? 'The FEN is invalid.';
+			onvaliditychange?.(false);
 			fenInputElement.focus();
 			return;
 		}
@@ -120,6 +126,12 @@
 		fenError = '';
 		commitState(parseFen(fenDraft), { message: 'FEN imported.' });
 		boardElement.focus();
+	}
+
+	function handleFenDraftInput(event: Event): void {
+		const draft = (event.currentTarget as HTMLInputElement).value;
+		fenError = '';
+		onvaliditychange?.(draft === serializeFen(positionState));
 	}
 
 	function setActiveColor(activeColor: ActiveColor): void {
@@ -149,6 +161,7 @@
 		const validation = validateEnPassantTarget(enPassantDraft);
 		if (!validation.valid) {
 			enPassantError = validation.error ?? 'The en-passant field is invalid.';
+			onvaliditychange?.(false);
 			enPassantInputElement.focus();
 			return;
 		}
@@ -158,6 +171,12 @@
 			{ ...positionState, enPassant: canonicalizeEnPassantTarget(enPassantDraft) },
 			{ message: 'En-passant state updated.' },
 		);
+	}
+
+	function handleEnPassantDraftInput(event: Event): void {
+		const draft = (event.currentTarget as HTMLInputElement).value;
+		enPassantError = '';
+		onvaliditychange?.(draft === positionState.enPassant);
 	}
 
 	function placePiece(event: SubmitEvent): void {
@@ -228,6 +247,7 @@
 				id="position-fen"
 				bind:this={fenInputElement}
 				bind:value={fenDraft}
+				oninput={handleFenDraftInput}
 				aria-describedby={fenError ? 'fen-error' : 'fen-help'}
 				aria-invalid={fenError ? 'true' : 'false'}
 				autocomplete="off"
@@ -316,6 +336,7 @@
 						id="en-passant"
 						bind:this={enPassantInputElement}
 						bind:value={enPassantDraft}
+						oninput={handleEnPassantDraftInput}
 						aria-describedby={enPassantError ? 'en-passant-error' : 'en-passant-help'}
 						aria-invalid={enPassantError ? 'true' : 'false'}
 						autocomplete="off"

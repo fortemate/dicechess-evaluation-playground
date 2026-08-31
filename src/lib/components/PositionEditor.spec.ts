@@ -107,6 +107,30 @@ describe('PositionEditor', () => {
 		expect(boardHarness.sync).not.toHaveBeenCalled();
 	});
 
+	it('reports uncommitted and invalid drafts as not ready for evaluation', async () => {
+		const user = userEvent.setup();
+		const onvaliditychange = vi.fn<(valid: boolean) => void>();
+		render(PositionEditor, { onvaliditychange });
+		const input = screen.getByLabelText<HTMLInputElement>('Import FEN');
+
+		await user.clear(input);
+		await user.type(input, 'not a position');
+		expect(onvaliditychange).toHaveBeenLastCalledWith(false);
+		await user.click(screen.getByRole('button', { name: 'Import' }));
+		expect(screen.getByRole('alert')).toBeTruthy();
+
+		await user.click(screen.getByLabelText('Black'));
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(onvaliditychange).toHaveBeenLastCalledWith(true);
+
+		await user.clear(input);
+		await user.type(input, '8/8/8/8/8/8/8/K6k b - -');
+		expect(onvaliditychange).toHaveBeenLastCalledWith(false);
+
+		await user.click(screen.getByRole('button', { name: 'Import' }));
+		expect(onvaliditychange).toHaveBeenLastCalledWith(true);
+	});
+
 	it('updates side, castling, and validated multi-target en-passant independently', async () => {
 		const user = userEvent.setup();
 		const onchange = vi.fn<(state: PositionState) => void>();
