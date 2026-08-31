@@ -143,7 +143,14 @@
 		</p>
 	{/if}
 
-	<EvaluationResult {status} currentFen={fen} {submittedFen} {result} error={evaluationError} />
+	<EvaluationResult
+		{status}
+		currentFen={fen}
+		editorReady={valid}
+		{submittedFen}
+		{result}
+		error={evaluationError}
+	/>
 </section>
 
 <style>

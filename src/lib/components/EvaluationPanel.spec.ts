@@ -98,6 +98,23 @@ describe('EvaluationPanel', () => {
 		expect(fetcher).toHaveBeenCalledOnce();
 	});
 
+	it('marks a completed result stale while the editor has an uncommitted draft', async () => {
+		const user = userEvent.setup();
+		const fetcher = vi.fn().mockResolvedValue(successResponse());
+		const { rerender } = render(EvaluationPanel, { fen: INITIAL_FEN, valid: true, fetcher });
+
+		await user.click(screen.getByRole('button', { name: 'Evaluate position' }));
+		await screen.findByRole('heading', { name: 'Evaluation complete' });
+		await rerender({ fen: INITIAL_FEN, valid: false, fetcher });
+
+		expect(
+			screen.getByText(
+				'The editor changed after this request. This result belongs to the submitted FEN below.',
+			),
+		).toBeTruthy();
+		expect(fetcher).toHaveBeenCalledOnce();
+	});
+
 	it('disables submission while the editor has an uncommitted or invalid change', async () => {
 		const user = userEvent.setup();
 		const fetcher = vi.fn();

@@ -11,17 +11,18 @@
 	interface Props {
 		status: 'idle' | 'pending' | 'success' | 'error';
 		currentFen: string;
+		editorReady: boolean;
 		submittedFen?: string;
 		result?: PositionEvaluationResponse;
 		error?: EvaluationApiError;
 	}
 
-	let { status, currentFen, submittedFen, result, error }: Props = $props();
+	let { status, currentFen, editorReady, submittedFen, result, error }: Props = $props();
 
 	const isStale = $derived(
 		(status === 'success' || status === 'error') &&
 			submittedFen !== undefined &&
-			currentFen !== submittedFen,
+			(!editorReady || currentFen !== submittedFen),
 	);
 
 	function perspectiveLabel(perspective: 'w' | 'b'): string {
