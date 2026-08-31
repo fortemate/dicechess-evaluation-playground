@@ -36,9 +36,10 @@
 
 	interface Props {
 		onchange?: (state: PositionState) => void;
+		onvaliditychange?: (valid: boolean) => void;
 	}
 
-	let { onchange }: Props = $props();
+	let { onchange, onvaliditychange }: Props = $props();
 
 	const startingState = parseFen(INITIAL_FEN);
 	let positionState = $state<PositionState>({ ...startingState });
@@ -47,6 +48,7 @@
 	let fenError = $state('');
 	let enPassantError = $state('');
 	let boardError = $state('');
+	let boardDraftValid = $state(true);
 	let statusMessage = $state('Editor ready. No evaluation request has been sent.');
 
 	let selectedPiece = $state<PieceSymbol>('P');
@@ -75,6 +77,16 @@
 		return () => boardAdapter?.destroy();
 	});
 
+	function notifyEvaluationReadiness(drafts: { fen?: string; enPassant?: string } = {}): void {
+		const candidateFen = drafts.fen ?? fenDraft;
+		const candidateEnPassant = drafts.enPassant ?? enPassantDraft;
+		onvaliditychange?.(
+			boardDraftValid &&
+				candidateFen === serializeFen(positionState) &&
+				candidateEnPassant === positionState.enPassant,
+		);
+	}
+
 	function commitState(
 		nextState: PositionState,
 		options: { syncBoard?: boolean; message?: string } = {},
@@ -82,19 +94,25 @@
 		const validation = validatePositionState(nextState);
 		if (!validation.valid) {
 			boardError = validation.error ?? 'The position is invalid.';
+			boardDraftValid = false;
+			notifyEvaluationReadiness();
 			return false;
 		}
 
 		positionState = { ...nextState };
 		fenDraft = serializeFen(positionState);
 		enPassantDraft = positionState.enPassant;
+		fenError = '';
+		enPassantError = '';
 		boardError = '';
+		boardDraftValid = true;
 
 		if (options.syncBoard !== false) {
 			boardAdapter?.sync(positionState);
 		}
 
 		onchange?.({ ...positionState });
+		notifyEvaluationReadiness();
 		if (options.message) {
 			statusMessage = options.message;
 		}
@@ -113,6 +131,7 @@
 		const validation = validateFen(fenDraft);
 		if (!validation.valid) {
 			fenError = validation.error ?? 'The FEN is invalid.';
+			notifyEvaluationReadiness();
 			fenInputElement.focus();
 			return;
 		}
@@ -120,6 +139,12 @@
 		fenError = '';
 		commitState(parseFen(fenDraft), { message: 'FEN imported.' });
 		boardElement.focus();
+	}
+
+	function handleFenDraftInput(event: Event): void {
+		const draft = (event.currentTarget as HTMLInputElement).value;
+		fenError = '';
+		notifyEvaluationReadiness({ fen: draft });
 	}
 
 	function setActiveColor(activeColor: ActiveColor): void {
@@ -149,6 +174,7 @@
 		const validation = validateEnPassantTarget(enPassantDraft);
 		if (!validation.valid) {
 			enPassantError = validation.error ?? 'The en-passant field is invalid.';
+			notifyEvaluationReadiness();
 			enPassantInputElement.focus();
 			return;
 		}
@@ -158,6 +184,12 @@
 			{ ...positionState, enPassant: canonicalizeEnPassantTarget(enPassantDraft) },
 			{ message: 'En-passant state updated.' },
 		);
+	}
+
+	function handleEnPassantDraftInput(event: Event): void {
+		const draft = (event.currentTarget as HTMLInputElement).value;
+		enPassantError = '';
+		notifyEvaluationReadiness({ enPassant: draft });
 	}
 
 	function placePiece(event: SubmitEvent): void {
@@ -228,6 +260,7 @@
 				id="position-fen"
 				bind:this={fenInputElement}
 				bind:value={fenDraft}
+				oninput={handleFenDraftInput}
 				aria-describedby={fenError ? 'fen-error' : 'fen-help'}
 				aria-invalid={fenError ? 'true' : 'false'}
 				autocomplete="off"
@@ -316,6 +349,7 @@
 						id="en-passant"
 						bind:this={enPassantInputElement}
 						bind:value={enPassantDraft}
+						oninput={handleEnPassantDraftInput}
 						aria-describedby={enPassantError ? 'en-passant-error' : 'en-passant-help'}
 						aria-invalid={enPassantError ? 'true' : 'false'}
 						autocomplete="off"
