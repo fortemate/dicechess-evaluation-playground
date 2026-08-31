@@ -144,11 +144,47 @@ for (const [name, service] of Object.entries({ playground, evaluator })) {
   assert(Array.isArray(service.tmpfs) && service.tmpfs.length > 0, `${name} must bound writable tmpfs`);
   assert(
     service.tmpfs.every(
-      (mount) => String(mount).includes('size=') && String(mount).includes('noexec') && String(mount).includes('nosuid'),
+      (mount) => String(mount).includes('size=') && String(mount).includes('nosuid'),
     ),
-    `${name} tmpfs must set a size and disable exec/suid`,
+    `${name} tmpfs must set a size and disable suid`,
   );
 }
+
+assert(
+  playground.tmpfs.every((mount) => String(mount).includes('noexec')),
+  'playground tmpfs must disable exec',
+);
+const evaluatorGeneralTmp = evaluator.tmpfs.find((mount) => String(mount).startsWith('/tmp:'));
+assert(
+  evaluatorGeneralTmp && String(evaluatorGeneralTmp).includes('noexec'),
+  'evaluator general-purpose /tmp must disable exec',
+);
+const evaluatorNativeTmp = evaluator.tmpfs.find((mount) =>
+  String(mount).startsWith('/onnxruntime-tmp:'),
+);
+assert(evaluatorNativeTmp, 'evaluator must provide scoped temporary storage for ONNX Runtime JNI libraries');
+const evaluatorNativeTmpSpec = String(evaluatorNativeTmp);
+const evaluatorNativeTmpOptions = evaluatorNativeTmpSpec
+  .slice(evaluatorNativeTmpSpec.indexOf(':') + 1)
+  .split(',');
+const evaluatorNativeTmpOptionSet = new Set(evaluatorNativeTmpOptions);
+for (const option of ['rw', 'exec', 'nodev', 'nosuid']) {
+  assert(
+    evaluatorNativeTmpOptionSet.has(option),
+    `evaluator ONNX Runtime tmpfs must include ${option}`,
+  );
+}
+assert(
+  !evaluatorNativeTmpOptionSet.has('noexec'),
+  'evaluator ONNX Runtime tmpfs must not disable exec',
+);
+const evaluatorNativeTmpSizeOptions = evaluatorNativeTmpOptions.filter((option) =>
+  option.startsWith('size='),
+);
+assert(
+  evaluatorNativeTmpSizeOptions.length === 1 && evaluatorNativeTmpSizeOptions[0] === 'size=64m',
+  'evaluator ONNX Runtime tmpfs must use exactly size=64m',
+);
 
 const allPublishedPorts = Object.entries(services).flatMap(([name, service]) =>
   (service.ports ?? []).map((port) => ({ serviceName: name, ...port })),
@@ -208,6 +244,10 @@ const evaluatorEnv = evaluator.environment ?? {};
 assert(playgroundEnv.EVALUATOR_ORIGIN === 'http://evaluator:8000', 'BFF must use the private evaluator origin');
 assert(playgroundEnv.ALLOW_DEV_AUTH_BYPASS === 'false', 'production auth bypass must remain disabled');
 assert(evaluatorEnv.ALLOW_UNAUTHENTICATED_DEV === 'false', 'evaluator auth bypass must remain disabled');
+assert(
+  evaluatorEnv.JAVA_TOOL_OPTIONS === '-Djava.io.tmpdir=/onnxruntime-tmp',
+  'evaluator must restrict ONNX Runtime JNI extraction to its scoped executable tmpfs',
+);
 assert(
   /^https:\/\/[^/]+$/.test(playgroundEnv.CF_ACCESS_TEAM_DOMAIN ?? ''),
   'Cloudflare Access team domain must be an HTTPS origin without a path',
