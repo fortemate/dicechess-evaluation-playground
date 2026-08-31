@@ -82,7 +82,12 @@ services:
     stop_grace_period: 45s
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
+      # ONNX Runtime's Java binding extracts JNI libraries to java.io.tmpdir.
+      # Keep the general-purpose /tmp non-executable and scope executable
+      # temporary storage to this small, device-free mount.
+      - /onnxruntime-tmp:rw,exec,nodev,nosuid,size=64m
     environment:
+      JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=/onnxruntime-tmp
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: '8000'
       EVALUATION_INTERNAL_TOKEN: ${EVALUATION_INTERNAL_TOKEN:?set EVALUATION_INTERNAL_TOKEN}
