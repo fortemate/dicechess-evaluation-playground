@@ -462,6 +462,26 @@ describe('EvaluationClient', () => {
 		);
 	});
 
+	it.each([null, 'upstream error', ['upstream error']])(
+		'maps non-object JSON error body %j to INTERNAL_FAILURE',
+		async (body) => {
+			const mockFetch = vi.fn(async () => {
+				return new Response(JSON.stringify(body), { status: 502 });
+			});
+			const client = new EvaluationClient(testConfig, {
+				fetchFn: mockFetch as unknown as typeof fetch,
+			});
+
+			await expect(client.evaluatePosition({ fen: 'fen' })).rejects.toThrowError(
+				expect.objectContaining({
+					status: 500,
+					code: 'INTERNAL_FAILURE',
+					message: 'An internal error occurred.',
+				}),
+			);
+		},
+	);
+
 	it('maps fetch timeout / abort errors to 504 DEADLINE_EXCEEDED', async () => {
 		const mockFetchTimeout = vi.fn(async () => {
 			const error = new Error('The operation was aborted due to timeout');

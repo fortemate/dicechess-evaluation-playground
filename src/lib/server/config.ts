@@ -83,8 +83,9 @@ function normalizeOrigin(origin: string, name: string): string {
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
 			throw new Error(`${name} must use http or https protocol`);
 		}
-		// Strip trailing slashes
-		return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
+		let pathnameEnd = url.pathname.length;
+		while (pathnameEnd > 0 && url.pathname[pathnameEnd - 1] === '/') pathnameEnd--;
+		return `${url.protocol}//${url.host}${url.pathname.slice(0, pathnameEnd)}`;
 	} catch (error) {
 		if (error instanceof Error && error.message.includes('protocol')) {
 			throw error;

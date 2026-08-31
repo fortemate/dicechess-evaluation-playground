@@ -164,7 +164,9 @@ interface UpstreamErrorBody {
 
 async function readUpstreamErrorBody(response: Response): Promise<UpstreamErrorBody> {
 	try {
-		return (await response.json()) as UpstreamErrorBody;
+		const body: unknown = await response.json();
+		if (typeof body !== 'object' || body === null || Array.isArray(body)) return {};
+		return body as UpstreamErrorBody;
 	} catch {
 		return {};
 	}
