@@ -23,13 +23,14 @@ DEFAULT_MODEL_SHA256="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b78
 
 require_external_variable() {
 	local variable_name="$1"
-	if [[ -z "${!variable_name:-}" ]]; then
+	local variable_value="${!variable_name:-}"
+	if [[ -z "${variable_value//[[:space:]]/}" ]]; then
 		printf 'Missing required environment variable for external evaluator: %s\n' "$variable_name" >&2
 		exit 2
 	fi
 }
 
-if [[ -z "${EVALUATOR_ORIGIN:-}" ]]; then
+if [[ -z "${EVALUATOR_ORIGIN+x}" ]]; then
 	echo "No EVALUATOR_ORIGIN provided; starting local mock evaluator fixture..."
 
 	PORT="${FIXTURE_PORT:-8088}"
@@ -66,6 +67,7 @@ if [[ -z "${EVALUATOR_ORIGIN:-}" ]]; then
 
 	EVALUATOR_ORIGIN="http://127.0.0.1:${PORT}"
 else
+	require_external_variable EVALUATOR_ORIGIN
 	require_external_variable EVALUATOR_BEARER_TOKEN
 	require_external_variable EXPECTED_MODEL_ID
 	require_external_variable EXPECTED_MODEL_SHA256
