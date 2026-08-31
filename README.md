@@ -2,7 +2,7 @@
 
 AGPL-licensed SvelteKit playground for interactively testing Dice Chess evaluation models. The deployed service is intended to remain protected even when the source repository is public. The MVP is tracked by [Epic #1](https://github.com/fortemate/dicechess-evaluation-playground/issues/1).
 
-The repository currently provides the engineering baseline from [Issue #2](https://github.com/fortemate/dicechess-evaluation-playground/issues/2). The position editor and evaluator BFF are intentionally not implemented yet.
+The repository provides the single-model MVP: an explicit Dice Chess position editor, a same-origin evaluator BFF, typed results and errors, immutable model provenance, and automated API, BFF, browser, and container checks.
 
 ## Security boundary
 
@@ -12,7 +12,7 @@ This repository contains the playground UI and BFF only. It does not contain the
 
 ## Board decision
 
-The accepted [board-editor decision](docs/decisions/0001-board-editor.md) selects `@lichess-org/chessground@10.1.1` under its upstream `GPL-3.0-or-later` license for the future editor. The editor will be implemented independently; no proprietary `dicechess-analytics-ui` editor or FEN-building code may be copied.
+The accepted [board-editor decision](docs/decisions/0001-board-editor.md) selects `@lichess-org/chessground@10.1.1` under its upstream `GPL-3.0-or-later` license. The editor is implemented independently; no proprietary `dicechess-analytics-ui` editor or FEN-building code is copied.
 
 ## Prerequisites
 

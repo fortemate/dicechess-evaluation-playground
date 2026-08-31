@@ -9,13 +9,16 @@ This runbook prepares and operates one protected evaluation-playground candidate
 
 ## Security and runtime shape
 
-The Compose project runs two non-root containers:
+The Compose project runs two non-root containers. When `cloudflared` is itself containerized, the protected origin path is:
 
 ```text
-cloudflared on Aurora -> 127.0.0.1:3100 -> playground/BFF -> private network -> evaluator
+cloudflared container -> playground edge network -> playground:3000/BFF
+                                                    -> internal evaluation network -> evaluator
 ```
 
-Only the playground publishes a host port, and it binds IPv4 loopback. The evaluator has no host port and joins only the internal `evaluation` network. Its model directory is mounted read-only. Both services have read-only root filesystems, all Linux capabilities dropped, `no-new-privileges`, PID/CPU/memory limits, bounded writable `tmpfs`, bounded application concurrency and rotated local logs. General-purpose temporary storage remains `noexec`; the evaluator has a separate 64 MiB `exec,nodev,nosuid` tmpfs configured through `JAVA_TOOL_OPTIONS` as the JVM default temporary directory. Any Java code using the default temporary-file location can write there; executable access is required for ONNX Runtime JNI extraction.
+The Tunnel connector joins the playground's `edge` network but never the internal `evaluation` network. A containerized connector must route to `http://playground:3000`; `127.0.0.1` inside that container is its own network namespace, not the Aurora host. A host-native connector may instead use the loopback-only publication as an explicitly verified fallback.
+
+Only the playground publishes a host port, and it binds IPv4 loopback for operator diagnostics and the host-native connector fallback. The evaluator has no host port and joins only the internal `evaluation` network. Its model directory is mounted read-only. Both services have read-only root filesystems, all Linux capabilities dropped, `no-new-privileges`, PID/CPU/memory limits, bounded writable `tmpfs`, bounded application concurrency and rotated local logs. General-purpose temporary storage remains `noexec`; the evaluator has a separate 64 MiB `exec,nodev,nosuid` tmpfs configured through `JAVA_TOOL_OPTIONS` as the JVM default temporary directory. Any Java code using the default temporary-file location can write there; executable access is required for ONNX Runtime JNI extraction.
 
 The playground `/health` endpoint proves only process liveness. Compose waits for the evaluator `/ready` endpoint, which proves that the configured model loaded, before starting the playground. A healthy playground must never be interpreted as evaluator readiness.
 
@@ -30,7 +33,8 @@ Before a change window, the operator must confirm:
 - an external model directory containing exactly the selected `model.onnx` and `manifest.json` files;
 - the SHA-256 of `manifest.json`, recorded with the deployment evidence;
 - a strong evaluator token, the Cloudflare Access team domain, and the Access application audience supplied through an operator-owned environment file;
-- the intended loopback port is unused and the existing `cloudflared` process can reach it.
+- the intended loopback port is unused;
+- whether `cloudflared` is host-native or containerized; for a containerized connector, its separately owner-controlled Compose configuration must be able to attach to the playground's `edge` network without attaching to `evaluation`.
 
 Do not put model files, populated environment files, private origins, tokens, or deployment evidence containing secrets in this public repository.
 
@@ -76,21 +80,31 @@ docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml ps
 
 `pull` is intentionally separate from preflight. There is no workflow in this repository that changes Aurora.
 
+For a containerized Tunnel connector, update its separately owner-controlled Compose configuration during the approved Cloudflare change window:
+
+1. Declare the playground Compose project's `edge` network as an external network and attach only `cloudflared` to it.
+2. Keep the connector on any pre-existing networks required by its other routes.
+3. Route the single protected playground hostname to `http://playground:3000`.
+4. Do not attach `cloudflared` to the `evaluation` network and do not create an evaluator route.
+
+Do not use an ad hoc network attachment as the final state: persist the connector network in its owner-controlled configuration so a connector recreate cannot silently break the route.
+
 ## Read back and verify
 
 1. Confirm the running containers use the approved digests, UID/GID `10001`, read-only roots, dropped capabilities, resource limits, and expected networks with `docker inspect`.
 2. Confirm `docker compose ps` reports the evaluator healthy before the playground is considered usable.
-3. From Aurora, verify the loopback origin:
+3. From Aurora, verify the loopback diagnostic origin:
 
    ```bash
    curl --fail --silent --show-error http://127.0.0.1:3100/health
    ```
 
 4. Prove the port is loopback-only with the host socket inspection tool (`ss -ltnp` on Linux). There must be no `0.0.0.0`, LAN-address, or IPv6 wildcard bind for the playground port.
-5. Prove the evaluator has no published port in `docker compose ps` and cannot be reached through Aurora's host/LAN addresses or any Tunnel hostname.
-6. Run the evaluator black-box contract suite from inside the private network or via an operator-only one-shot container. Do not publish a temporary evaluator host port.
-7. Observe container CPU, memory, PIDs, restart count, health state, and logs during several explicit evaluations. Stop if host contention or repeated restarts appear.
-8. Only after the Aurora checks pass, perform the separately approved Cloudflare Tunnel and Access work in Issue #13. Verify anonymous denial, invalid JWT denial, and one allowlisted tester's successful evaluation.
+5. If `cloudflared` is containerized, prove it joins the playground `edge` network, does not join `evaluation`, and can retrieve `http://playground:3000/health` from the edge network.
+6. Prove the evaluator has no published port in `docker compose ps` and cannot be reached through Aurora's host/LAN addresses or any Tunnel hostname.
+7. Run the evaluator black-box contract suite from inside the private network or via an operator-only one-shot container. Do not publish a temporary evaluator host port.
+8. Observe container CPU, memory, PIDs, restart count, health state, and logs during several explicit evaluations. Stop if host contention or repeated restarts appear.
+9. Only after the Aurora checks pass, perform the separately approved Cloudflare Tunnel and Access work in Issue #13. Verify the exact hostname-to-playground route, anonymous denial, BFF JWT denial, one allowlisted tester's successful evaluation, and evaluator non-exposure.
 
 ## Logs and diagnosis
 
@@ -133,12 +147,13 @@ To roll back:
 2. Run `mise run aurora:preflight`.
 3. Pull the prior digests and run `docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml up -d --remove-orphans`.
 4. Wait for evaluator readiness, verify the loopback origin, run an explicit evaluation, and read back the running image/model provenance.
-5. If rollback cannot restore a healthy private stack, stop both containers and remove or disable the Tunnel route under the separately authorized Cloudflare procedure. Do not expose the evaluator as a workaround.
+5. If rollback cannot restore a healthy private stack, stop both containers and remove or disable the Tunnel route under the separately authorized Cloudflare procedure. If the connector network attachment was part of the failed change, restore its previous owner-controlled Compose configuration and recreate only the connector. Do not expose the evaluator as a workaround.
 
 ## Recovery
 
 - **Evaluator never becomes ready:** inspect evaluator logs, verify model and manifest hashes, engine compatibility, file readability by UID `10001`, memory availability, and the internal token. Leave the playground unavailable until readiness succeeds.
 - **Playground is healthy but evaluation fails:** verify private-network DNS for `evaluator`, token equality, BFF timeout, evaluator admission metrics/logs, and model readiness. `/health` alone is not success evidence.
 - **Loopback port is occupied:** stop and identify the owner. Select another approved loopback port in the local environment and synchronize the Tunnel origin later; never bind a wildcard address.
+- **Containerized `cloudflared` cannot reach the playground:** confirm both containers share only the playground `edge` network, the Tunnel origin uses `http://playground:3000`, and the connector's persisted Compose configuration includes that external network. Do not route the connector to its own `127.0.0.1` and do not attach it to `evaluation`.
 - **Host pressure:** stop the candidate with `docker compose ... down`, preserve logs, and revise the approved resource plan. Do not weaken limits during an incident.
 - **Configuration drift:** restore from reviewed repository files and the last known-good local environment. Run preflight and read back the rendered/running state again.
