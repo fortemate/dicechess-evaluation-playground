@@ -37,7 +37,7 @@ mise run dev
 mise run check                      # lint, format, types, workflow syntax, coverage, contract tests, build
 mise run test:contracts:evaluator   # evaluator black-box contract gate
 mise run test:e2e:install           # one-time local Chromium install
-mise run test:e2e                   # built adapter-node browser smoke
+mise run test:e2e                   # fixture-backed adapter-node acceptance flow
 mise run hook:run                   # full secret scan plus pre-commit jobs on tracked files
 ```
 
