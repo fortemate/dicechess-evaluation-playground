@@ -1,16 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Jegors Čemisovs
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig } from '@playwright/test';
 
-const caCertPath = process.env.PLAYGROUND_CA_CERT || join(tmpdir(), 'dicechess-playground-ca.pem');
+const caCertPath = join(tmpdir(), `dicechess-playground-ca-${process.pid}-${randomUUID()}.pem`);
 
 export default defineConfig({
 	testDir: 'e2e',
 	fullyParallel: false,
-	workers: process.env.CI ? 1 : undefined,
+	workers: 1,
 	reporter: [['list'], ['html', { open: 'never' }]],
 	use: {
 		baseURL: 'http://127.0.0.1:3000',
@@ -20,7 +21,7 @@ export default defineConfig({
 		{
 			command: 'node tests/fixtures/playground/server.js',
 			url: 'http://127.0.0.1:8088/health',
-			reuseExistingServer: !process.env.CI,
+			reuseExistingServer: false,
 			timeout: 30_000,
 			env: {
 				...process.env,
@@ -35,7 +36,7 @@ export default defineConfig({
 		{
 			command: 'npm run build && npm run start',
 			url: 'http://127.0.0.1:3000/health',
-			reuseExistingServer: !process.env.CI,
+			reuseExistingServer: false,
 			timeout: 120_000,
 			env: {
 				...process.env,

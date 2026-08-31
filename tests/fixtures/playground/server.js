@@ -24,13 +24,15 @@ const MODEL_SHA256 =
 	'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 const CF_ACCESS_TEAM_DOMAIN = process.env.CF_ACCESS_TEAM_DOMAIN || `https://127.0.0.1:${JWKS_PORT}`;
 const CF_ACCESS_AUD = process.env.CF_ACCESS_AUD || 'e2e-aud-tag';
+const OPENSSL_PATH = '/usr/bin/openssl';
+let evaluationRequestCount = 0;
 
 // Verify openssl is available before attempting to generate ephemeral certificates
 try {
-	execFileSync('openssl', ['version'], { stdio: 'ignore' });
+	execFileSync(OPENSSL_PATH, ['version'], { stdio: 'ignore' });
 } catch (error) {
 	throw new Error(
-		'The "openssl" CLI tool is required to generate the ephemeral TLS certificate for local HTTPS JWKS fixtures. Please ensure openssl is installed and on PATH.',
+		`The trusted OpenSSL executable is required at ${OPENSSL_PATH} to generate the ephemeral TLS certificate for local HTTPS JWKS fixtures.`,
 		{ cause: error },
 	);
 }
@@ -39,26 +41,29 @@ try {
 const tempDir = mkdtempSync(join(tmpdir(), 'playground-e2e-tls-'));
 const keyPath = join(tempDir, 'tls-key.pem');
 const rawCertPath = join(tempDir, 'tls-cert.pem');
-const caCertExportPath =
-	process.env.PLAYGROUND_CA_CERT || join(tmpdir(), 'dicechess-playground-ca.pem');
+const caCertExportPath = process.env.PLAYGROUND_CA_CERT || join(tempDir, 'ca-cert.pem');
 
-execFileSync('openssl', [
-	'req',
-	'-x509',
-	'-newkey',
-	'rsa:2048',
-	'-nodes',
-	'-keyout',
-	keyPath,
-	'-out',
-	rawCertPath,
-	'-days',
-	'1',
-	'-subj',
-	'/CN=127.0.0.1',
-	'-addext',
-	'subjectAltName=IP:127.0.0.1,DNS:localhost',
-]);
+execFileSync(
+	OPENSSL_PATH,
+	[
+		'req',
+		'-x509',
+		'-newkey',
+		'rsa:2048',
+		'-nodes',
+		'-keyout',
+		keyPath,
+		'-out',
+		rawCertPath,
+		'-days',
+		'1',
+		'-subj',
+		'/CN=127.0.0.1',
+		'-addext',
+		'subjectAltName=IP:127.0.0.1,DNS:localhost',
+	],
+	{ stdio: 'ignore' },
+);
 
 const tlsKey = readFileSync(keyPath);
 const tlsCert = readFileSync(rawCertPath);
@@ -160,8 +165,18 @@ const evaluatorServer = createHttpServer(async (req, res) => {
 		return sendJson(res, 200, { token });
 	}
 
+	if (req.method === 'GET' && url.pathname === '/test/stats') {
+		return sendJson(res, 200, { evaluationRequestCount });
+	}
+
+	if (req.method === 'POST' && url.pathname === '/test/reset') {
+		evaluationRequestCount = 0;
+		return sendJson(res, 200, { evaluationRequestCount });
+	}
+
 	// Protected position evaluation endpoint
 	if (req.method === 'POST' && url.pathname === '/api/v1/evaluate/position') {
+		evaluationRequestCount += 1;
 		if (!authHeader || authHeader !== `Bearer ${EXPECTED_TOKEN}`) {
 			return sendJson(res, 401, {
 				code: 'AUTHENTICATION_FAILURE',

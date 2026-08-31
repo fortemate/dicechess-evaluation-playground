@@ -49,7 +49,7 @@ description = "Run evaluator black-box contract suite against a fixture or confi
 run = "bash scripts/run-evaluator-contracts.sh"
 
 [tasks."test:e2e"]
-description = "Run Playwright against the built adapter-node server"
+description = "Run the fixture-backed Playwright acceptance flow against adapter-node"
 run = "npm run test:e2e"
 
 [tasks."test:e2e:install"]

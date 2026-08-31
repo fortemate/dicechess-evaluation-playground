@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Jegors Čemisovs
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import { Buffer } from 'node:buffer';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -34,6 +35,28 @@ async function fetchTestJwt(options?: TestTokenOptions): Promise<string> {
 	return json.token;
 }
 
+async function resetFixtureStats(): Promise<void> {
+	const response = await fetch(`${EVALUATOR_ORIGIN}/test/reset`, { method: 'POST' });
+	if (!response.ok) {
+		throw new Error(`Failed to reset evaluator fixture stats: ${response.status}`);
+	}
+}
+
+async function getEvaluationRequestCount(): Promise<number> {
+	const response = await fetch(`${EVALUATOR_ORIGIN}/test/stats`);
+	if (!response.ok) {
+		throw new Error(`Failed to read evaluator fixture stats: ${response.status}`);
+	}
+	const payload = (await response.json()) as { evaluationRequestCount?: unknown };
+	if (
+		typeof payload.evaluationRequestCount !== 'number' ||
+		!Number.isInteger(payload.evaluationRequestCount)
+	) {
+		throw new Error('Evaluator fixture returned invalid stats');
+	}
+	return payload.evaluationRequestCount;
+}
+
 function getAllFiles(dir: string): string[] {
 	let results: string[] = [];
 	try {
@@ -54,6 +77,10 @@ function getAllFiles(dir: string): string[] {
 }
 
 test.describe('E2E Playground Evaluation Acceptance Flow', () => {
+	test.beforeEach(async () => {
+		await resetFixtureStats();
+	});
+
 	test('completes single-model position-to-evaluation flow with provenance, edits without requests, and stale tracking', async ({
 		page,
 	}) => {
@@ -182,6 +209,8 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 			for (const [key, value] of Object.entries(req.headers)) {
 				expect(key.toLowerCase()).not.toContain('evaluator');
 				expect(value).not.toContain(EVALUATOR_BEARER_TOKEN);
+				expect(value).not.toContain(EVALUATOR_ORIGIN);
+				expect(value).not.toContain('8088');
 			}
 		}
 
@@ -204,12 +233,12 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		const clientFiles = getAllFiles(resolve('build/client'));
 		expect(clientFiles.length).toBeGreaterThan(0);
 		for (const filePath of clientFiles) {
-			if (filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.json')) {
-				const content = readFileSync(filePath, 'utf8');
-				expect(content).not.toContain(EVALUATOR_ORIGIN);
-				expect(content).not.toContain(EVALUATOR_BEARER_TOKEN);
-			}
+			const content = readFileSync(filePath);
+			expect(content.includes(Buffer.from(EVALUATOR_ORIGIN))).toBe(false);
+			expect(content.includes(Buffer.from(EVALUATOR_BEARER_TOKEN))).toBe(false);
 		}
+
+		expect(await getEvaluationRequestCount()).toBe(1);
 	});
 
 	test('renders stable typed-error path when authentication is rejected without contacting evaluator', async ({
@@ -251,5 +280,6 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 
 		// Verify exactly one browser request was made to /api/evaluate and failed
 		expect(evaluateRequests).toHaveLength(1);
+		expect(await getEvaluationRequestCount()).toBe(0);
 	});
 });
