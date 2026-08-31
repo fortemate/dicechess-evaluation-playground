@@ -92,13 +92,14 @@ else
   docker compose --env-file "$env_file" -f "$compose_file" config --format json >"$rendered_config"
 fi
 
-AURORA_VALIDATION_MODE=$mode node - "$rendered_config" <<'NODE'
+AURORA_VALIDATION_MODE=$mode AURORA_COMPOSE_FILE=$compose_file node - "$rendered_config" <<'NODE'
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const mode = process.env.AURORA_VALIDATION_MODE;
 const config = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+const composeSource = fs.readFileSync(process.env.AURORA_COMPOSE_FILE, 'utf8');
 const fail = (message) => {
   throw new Error(`Aurora validation failed: ${message}`);
 };
@@ -181,7 +182,13 @@ assert(
 const modelMount = (evaluator.volumes ?? []).find((mount) => mount.target === '/model');
 assert(modelMount?.type === 'bind', 'model package must use a bind mount');
 assert(modelMount?.read_only === true, 'model package must be mounted read-only');
-assert(modelMount?.bind?.create_host_path === false, 'model mount must not create a missing host directory');
+assert(modelMount?.bind?.create_host_path !== true, 'model mount must not create a missing host directory');
+assert(
+  /target:\s*\/model\s*\n\s*read_only:\s*true\s*\n\s*bind:\s*\n\s*create_host_path:\s*false/.test(
+    composeSource,
+  ),
+  'compose source must explicitly disable host-path creation for the model mount',
+);
 
 assert(
   playground.depends_on?.evaluator?.condition === 'service_healthy',
