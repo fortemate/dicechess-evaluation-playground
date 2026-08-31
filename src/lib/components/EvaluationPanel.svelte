@@ -104,9 +104,10 @@
 				return;
 			}
 
+			const headerCorrelationId = response.headers.get('x-correlation-id') ?? undefined;
 			evaluationError = isEvaluationError(payload)
-				? payload
-				: fallbackError(response.headers.get('x-correlation-id') ?? undefined);
+				? { ...payload, correlationId: payload.correlationId ?? headerCorrelationId }
+				: fallbackError(headerCorrelationId);
 			status = 'error';
 		} catch {
 			evaluationError = fallbackError();

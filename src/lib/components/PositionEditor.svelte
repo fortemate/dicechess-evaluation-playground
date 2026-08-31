@@ -48,6 +48,7 @@
 	let fenError = $state('');
 	let enPassantError = $state('');
 	let boardError = $state('');
+	let boardDraftValid = $state(true);
 	let statusMessage = $state('Editor ready. No evaluation request has been sent.');
 
 	let selectedPiece = $state<PieceSymbol>('P');
@@ -76,6 +77,16 @@
 		return () => boardAdapter?.destroy();
 	});
 
+	function notifyEvaluationReadiness(drafts: { fen?: string; enPassant?: string } = {}): void {
+		const candidateFen = drafts.fen ?? fenDraft;
+		const candidateEnPassant = drafts.enPassant ?? enPassantDraft;
+		onvaliditychange?.(
+			boardDraftValid &&
+				candidateFen === serializeFen(positionState) &&
+				candidateEnPassant === positionState.enPassant,
+		);
+	}
+
 	function commitState(
 		nextState: PositionState,
 		options: { syncBoard?: boolean; message?: string } = {},
@@ -83,7 +94,8 @@
 		const validation = validatePositionState(nextState);
 		if (!validation.valid) {
 			boardError = validation.error ?? 'The position is invalid.';
-			onvaliditychange?.(false);
+			boardDraftValid = false;
+			notifyEvaluationReadiness();
 			return false;
 		}
 
@@ -93,13 +105,14 @@
 		fenError = '';
 		enPassantError = '';
 		boardError = '';
+		boardDraftValid = true;
 
 		if (options.syncBoard !== false) {
 			boardAdapter?.sync(positionState);
 		}
 
 		onchange?.({ ...positionState });
-		onvaliditychange?.(true);
+		notifyEvaluationReadiness();
 		if (options.message) {
 			statusMessage = options.message;
 		}
@@ -118,7 +131,7 @@
 		const validation = validateFen(fenDraft);
 		if (!validation.valid) {
 			fenError = validation.error ?? 'The FEN is invalid.';
-			onvaliditychange?.(false);
+			notifyEvaluationReadiness();
 			fenInputElement.focus();
 			return;
 		}
@@ -131,7 +144,7 @@
 	function handleFenDraftInput(event: Event): void {
 		const draft = (event.currentTarget as HTMLInputElement).value;
 		fenError = '';
-		onvaliditychange?.(draft === serializeFen(positionState));
+		notifyEvaluationReadiness({ fen: draft });
 	}
 
 	function setActiveColor(activeColor: ActiveColor): void {
@@ -161,7 +174,7 @@
 		const validation = validateEnPassantTarget(enPassantDraft);
 		if (!validation.valid) {
 			enPassantError = validation.error ?? 'The en-passant field is invalid.';
-			onvaliditychange?.(false);
+			notifyEvaluationReadiness();
 			enPassantInputElement.focus();
 			return;
 		}
@@ -176,7 +189,7 @@
 	function handleEnPassantDraftInput(event: Event): void {
 		const draft = (event.currentTarget as HTMLInputElement).value;
 		enPassantError = '';
-		onvaliditychange?.(draft === positionState.enPassant);
+		notifyEvaluationReadiness({ enPassant: draft });
 	}
 
 	function placePiece(event: SubmitEvent): void {

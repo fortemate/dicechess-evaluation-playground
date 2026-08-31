@@ -116,6 +116,12 @@ describe('PositionEditor', () => {
 		await user.clear(input);
 		await user.type(input, 'not a position');
 		expect(onvaliditychange).toHaveBeenLastCalledWith(false);
+
+		const enPassantInput = screen.getByLabelText<HTMLInputElement>('En-passant target(s)');
+		await user.clear(enPassantInput);
+		await user.type(enPassantInput, '-');
+		expect(onvaliditychange).toHaveBeenLastCalledWith(false);
+
 		await user.click(screen.getByRole('button', { name: 'Import' }));
 		expect(screen.getByRole('alert')).toBeTruthy();
 

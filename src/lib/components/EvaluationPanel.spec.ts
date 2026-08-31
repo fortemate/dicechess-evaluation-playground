@@ -172,4 +172,19 @@ describe('EvaluationPanel', () => {
 		expect(alert.textContent).toContain('Evaluator unavailable');
 		expect(screen.queryByRole('heading', { name: 'Evaluation complete' })).toBeNull();
 	});
+
+	it('uses the response header correlation ID when a typed error body omits it', async () => {
+		const user = userEvent.setup();
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ code: 'MODEL_UNAVAILABLE', error: 'Model unavailable' }), {
+				status: 503,
+				headers: { 'x-correlation-id': 'header-request-123' },
+			}),
+		);
+		render(EvaluationPanel, { fen: INITIAL_FEN, fetcher });
+
+		await user.click(screen.getByRole('button', { name: 'Evaluate position' }));
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toContain('header-request-123');
+	});
 });
