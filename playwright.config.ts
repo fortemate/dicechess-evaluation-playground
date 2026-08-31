@@ -24,6 +24,10 @@ export default defineConfig({
 			BODY_SIZE_LIMIT: '64K',
 			APP_VERSION: 'e2e',
 			PUBLIC_SOURCE_REVISION: '0123456789abcdef0123456789abcdef01234567',
+			EVALUATOR_ORIGIN: 'http://127.0.0.1:8080',
+			EVALUATOR_BEARER_TOKEN: 'e2e-evaluator-token',
+			CF_ACCESS_TEAM_DOMAIN: 'https://e2e-team.cloudflareaccess.com',
+			CF_ACCESS_AUD: 'e2e-aud-tag',
 		},
 	},
 });
