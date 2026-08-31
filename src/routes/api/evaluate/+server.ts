@@ -30,6 +30,53 @@ function errorResponse(status: number, error: EvaluationApiError): Response {
 	return jsonResponse(error, status, error.correlationId);
 }
 
+async function readBoundedRequestBody(
+	request: Request,
+	maxBytes: number,
+): Promise<
+	{ ok: true; text: string } | { ok: false; error: 'PAYLOAD_TOO_LARGE' | 'INVALID_REQUEST' }
+> {
+	if (!request.body) {
+		try {
+			const text = await request.text();
+			const byteLength = new TextEncoder().encode(text).length;
+			if (byteLength > maxBytes) {
+				return { ok: false, error: 'PAYLOAD_TOO_LARGE' };
+			}
+			return { ok: true, text };
+		} catch {
+			return { ok: false, error: 'INVALID_REQUEST' };
+		}
+	}
+
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let totalBytes = 0;
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			totalBytes += value.byteLength;
+			if (totalBytes > maxBytes) {
+				await reader.cancel();
+				return { ok: false, error: 'PAYLOAD_TOO_LARGE' };
+			}
+			chunks.push(value);
+		}
+	} catch {
+		return { ok: false, error: 'INVALID_REQUEST' };
+	}
+
+	const combined = new Uint8Array(totalBytes);
+	let offset = 0;
+	for (const chunk of chunks) {
+		combined.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return { ok: true, text: new TextDecoder().decode(combined) };
+}
+
 export interface _EvaluateHandlerDependencies {
 	config?: ServerConfig;
 	validator?: CloudflareAccessValidator;
@@ -37,16 +84,23 @@ export interface _EvaluateHandlerDependencies {
 }
 
 export function _createEvaluateHandler(deps: _EvaluateHandlerDependencies = {}): RequestHandler {
+	let cachedConfig = deps.config;
+	let cachedValidator = deps.validator;
+	let cachedClient = deps.client;
+
 	return async (event: RequestEvent): Promise<Response> => {
 		const correlationId = crypto.randomUUID();
 
-		let config: ServerConfig;
-		let validator: CloudflareAccessValidator;
-		let client: EvaluationClient;
 		try {
-			config = deps.config ?? loadServerConfig();
-			validator = deps.validator ?? new CloudflareAccessValidator(config);
-			client = deps.client ?? new EvaluationClient(config);
+			if (!cachedConfig) {
+				cachedConfig = loadServerConfig();
+			}
+			if (!cachedValidator) {
+				cachedValidator = new CloudflareAccessValidator(cachedConfig);
+			}
+			if (!cachedClient) {
+				cachedClient = new EvaluationClient(cachedConfig);
+			}
 		} catch {
 			return errorResponse(500, {
 				code: 'INTERNAL_FAILURE',
@@ -54,6 +108,10 @@ export function _createEvaluateHandler(deps: _EvaluateHandlerDependencies = {}):
 				correlationId,
 			});
 		}
+
+		const config = cachedConfig;
+		const validator = cachedValidator;
+		const client = cachedClient;
 
 		// 1. Check Content-Length header size bound
 		const contentLengthHeader = event.request.headers.get('content-length');
@@ -72,35 +130,33 @@ export function _createEvaluateHandler(deps: _EvaluateHandlerDependencies = {}):
 		try {
 			clientAddress = event.getClientAddress();
 		} catch {
-			clientAddress = event.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+			clientAddress = undefined;
 		}
 
 		const authResult = await validator.validateRequest(event.request.headers, clientAddress);
 		if (!authResult.authenticated) {
 			return errorResponse(401, {
 				code: 'AUTHENTICATION_FAILURE',
-				error: authResult.error ?? 'Invalid or missing authentication credentials',
+				error: 'Invalid or missing authentication credentials',
 			});
 		}
 
-		// 3. Read and bound body payload
-		let text: string;
-		try {
-			text = await event.request.text();
-		} catch {
+		// 3. Read and stream-bound body payload
+		const readResult = await readBoundedRequestBody(event.request, config.maxRequestBodyBytes);
+		if (!readResult.ok) {
+			if (readResult.error === 'PAYLOAD_TOO_LARGE') {
+				return errorResponse(413, {
+					code: 'PAYLOAD_TOO_LARGE',
+					error: `Request body exceeds ${config.maxRequestBodyBytes} byte limit`,
+				});
+			}
 			return errorResponse(400, {
 				code: 'INVALID_REQUEST',
 				error: 'Failed to read request body',
 			});
 		}
 
-		const byteLength = new TextEncoder().encode(text).length;
-		if (byteLength > config.maxRequestBodyBytes) {
-			return errorResponse(413, {
-				code: 'PAYLOAD_TOO_LARGE',
-				error: `Request body exceeds ${config.maxRequestBodyBytes} byte limit`,
-			});
-		}
+		const text = readResult.text;
 
 		// 4. Parse JSON
 		let rawBody: unknown;

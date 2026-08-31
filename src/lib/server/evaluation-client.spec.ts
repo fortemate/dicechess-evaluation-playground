@@ -108,6 +108,95 @@ describe('EvaluationClient', () => {
 		expect(client.activeEvaluations).toBe(0);
 	});
 
+	it('validates 200 success response payload structure and rejects malformed payloads', async () => {
+		const clientWithMock = (body: unknown, status = 200, throwsJson = false) => {
+			const mockFetch = vi.fn(async () => {
+				if (throwsJson) {
+					return {
+						ok: true,
+						status,
+						json: async () => {
+							throw new Error('Malformed JSON text');
+						},
+					} as unknown as Response;
+				}
+				return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
+					status,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			});
+			return new EvaluationClient(testConfig, { fetchFn: mockFetch as unknown as typeof fetch });
+		};
+
+		// 1. Non-JSON text on 200
+		await expect(
+			clientWithMock(null, 200, true).evaluatePosition({ fen: 'fen' }),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 2. Non-object payload (array, primitive, null)
+		await expect(
+			clientWithMock(['not-object']).evaluatePosition({ fen: 'fen' }),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+		await expect(clientWithMock(null).evaluatePosition({ fen: 'fen' })).rejects.toThrowError(
+			expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }),
+		);
+
+		// 3. Missing or invalid fen
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, fen: 123 }).evaluatePosition({ fen: 'fen' }),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, fen: '   ' }).evaluatePosition({ fen: 'fen' }),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 4. Invalid sideToMove
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, sideToMove: 'x' }).evaluatePosition({
+				fen: 'fen',
+			}),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 5. Invalid winProbability (out of bounds, string, NaN)
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, winProbability: 1.5 }).evaluatePosition({
+				fen: 'fen',
+			}),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, winProbability: -0.1 }).evaluatePosition({
+				fen: 'fen',
+			}),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, winProbability: '0.5' }).evaluatePosition({
+				fen: 'fen',
+			}),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 6. Missing provenance or non-object provenance
+		await expect(
+			clientWithMock({ ...sampleSuccessResponse, provenance: null }).evaluatePosition({
+				fen: 'fen',
+			}),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 7. Malformed provenance string fields
+		await expect(
+			clientWithMock({
+				...sampleSuccessResponse,
+				provenance: { ...sampleSuccessResponse.provenance, engineVersion: 123 },
+			}).evaluatePosition({ fen: 'fen' }),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+
+		// 8. Invalid modelSha256
+		await expect(
+			clientWithMock({
+				...sampleSuccessResponse,
+				provenance: { ...sampleSuccessResponse.provenance, modelSha256: 'short-sha' },
+			}).evaluatePosition({ fen: 'fen' }),
+		).rejects.toThrowError(expect.objectContaining({ status: 500, code: 'INTERNAL_FAILURE' }));
+	});
+
 	it('maps upstream 422 errors to INVALID_FEN or INVALID_PROFILE with custom or default messages', async () => {
 		const mockFetchFenError = vi.fn(async () => {
 			return new Response(

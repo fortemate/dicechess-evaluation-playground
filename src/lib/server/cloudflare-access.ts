@@ -90,11 +90,10 @@ export class CloudflareAccessValidator {
 				subject: payload.sub,
 				email: typeof payload.email === 'string' ? payload.email : undefined,
 			};
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'JWT verification failed';
+		} catch {
 			return {
 				authenticated: false,
-				error: `Cloudflare Access JWT validation failed: ${message}`,
+				error: 'Invalid or missing authentication credentials',
 			};
 		}
 	}

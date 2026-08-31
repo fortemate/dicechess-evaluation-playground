@@ -100,8 +100,14 @@ function normalizeTeamDomain(teamDomain: string): string {
 			: `https://${trimmed}`;
 	try {
 		const url = new URL(withProtocol);
+		if (url.protocol !== 'https:') {
+			throw new Error('CF_ACCESS_TEAM_DOMAIN must use https protocol');
+		}
 		return `${url.protocol}//${url.host}`;
 	} catch (error) {
+		if (error instanceof Error && error.message.includes('protocol')) {
+			throw error;
+		}
 		throw new Error(`Invalid CF_ACCESS_TEAM_DOMAIN: '${trimmed}'`, { cause: error });
 	}
 }

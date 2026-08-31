@@ -240,6 +240,13 @@ describe('loadServerConfig', () => {
 				CF_ACCESS_TEAM_DOMAIN: 'http://',
 			}),
 		).toThrow('Invalid CF_ACCESS_TEAM_DOMAIN');
+
+		expect(() =>
+			loadServerConfig({
+				...validEnv,
+				CF_ACCESS_TEAM_DOMAIN: 'http://insecure-team.cloudflareaccess.com',
+			}),
+		).toThrow('CF_ACCESS_TEAM_DOMAIN must use https protocol');
 	});
 
 	it('throws an error if CF_ACCESS_AUD is missing when auth bypass is disabled', () => {

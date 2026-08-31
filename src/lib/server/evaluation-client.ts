@@ -46,6 +46,77 @@ export interface EvaluationClientOptions {
 	fetchFn?: typeof fetch;
 }
 
+const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/i;
+
+function validateUpstreamSuccessResponse(data: unknown): UpstreamPositionEvalResponse {
+	if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+		throw new EvaluationClientError(
+			500,
+			'INTERNAL_FAILURE',
+			'Invalid response format from evaluation service',
+		);
+	}
+
+	const record = data as Record<string, unknown>;
+	if (typeof record.fen !== 'string' || record.fen.trim() === '') {
+		throw new EvaluationClientError(
+			500,
+			'INTERNAL_FAILURE',
+			'Invalid response: missing or invalid fen',
+		);
+	}
+
+	if (record.sideToMove !== 'w' && record.sideToMove !== 'b') {
+		throw new EvaluationClientError(
+			500,
+			'INTERNAL_FAILURE',
+			'Invalid response: sideToMove must be "w" or "b"',
+		);
+	}
+
+	if (
+		typeof record.winProbability !== 'number' ||
+		Number.isNaN(record.winProbability) ||
+		record.winProbability < 0 ||
+		record.winProbability > 1
+	) {
+		throw new EvaluationClientError(
+			500,
+			'INTERNAL_FAILURE',
+			'Invalid response: winProbability must be a number between 0 and 1',
+		);
+	}
+
+	const provenance = record.provenance;
+	if (typeof provenance !== 'object' || provenance === null || Array.isArray(provenance)) {
+		throw new EvaluationClientError(
+			500,
+			'INTERNAL_FAILURE',
+			'Invalid response: missing provenance',
+		);
+	}
+
+	const prov = provenance as Record<string, unknown>;
+	if (
+		typeof prov.engineVersion !== 'string' ||
+		typeof prov.rulesetVersion !== 'string' ||
+		typeof prov.modelId !== 'string' ||
+		typeof prov.featureSchema !== 'string' ||
+		typeof prov.evaluationProfile !== 'string' ||
+		typeof prov.algorithm !== 'string' ||
+		typeof prov.modelSha256 !== 'string' ||
+		!SHA256_HEX_PATTERN.test(prov.modelSha256)
+	) {
+		throw new EvaluationClientError(
+			500,
+			'INTERNAL_FAILURE',
+			'Invalid response: malformed provenance or model SHA-256',
+		);
+	}
+
+	return data as UpstreamPositionEvalResponse;
+}
+
 export class EvaluationClient {
 	private readonly config: ServerConfig;
 	private readonly fetchFn: typeof fetch;
@@ -91,8 +162,17 @@ export class EvaluationClient {
 			});
 
 			if (response.ok) {
-				const data = (await response.json()) as UpstreamPositionEvalResponse;
-				return data;
+				let rawJson: unknown;
+				try {
+					rawJson = await response.json();
+				} catch {
+					throw new EvaluationClientError(
+						500,
+						'INTERNAL_FAILURE',
+						'Invalid non-JSON response from evaluation service',
+					);
+				}
+				return validateUpstreamSuccessResponse(rawJson);
 			}
 
 			let errorBody: { code?: string; error?: string; correlationId?: string } = {};

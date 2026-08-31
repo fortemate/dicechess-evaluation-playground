@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
 import { _createEvaluateHandler, POST } from './+server.js';
 import type { ServerConfig } from '$lib/server/config.js';
-import { CloudflareAccessValidator } from '$lib/server/cloudflare-access.js';
 import { EvaluationClient, EvaluationClientError } from '$lib/server/evaluation-client.js';
 
 describe('POST /api/evaluate', () => {
@@ -42,17 +41,40 @@ describe('POST /api/evaluate', () => {
 		headers?: Record<string, string>;
 		clientAddress?: string;
 		throwClientAddress?: boolean;
+		throwBodyRead?: boolean;
+		nullBody?: boolean;
 		throwText?: boolean;
 	}): RequestEvent {
 		const headers = new Headers(options.headers ?? {});
-		const request = new Request('http://127.0.0.1:3000/api/evaluate', {
-			method: 'POST',
-			headers,
-			body: options.body,
-		});
 
-		if (options.throwText) {
-			vi.spyOn(request, 'text').mockRejectedValue(new Error('Stream closed'));
+		let request: Request;
+		if (options.nullBody) {
+			request = new Request('http://127.0.0.1:3000/api/evaluate', {
+				method: 'POST',
+				headers,
+			});
+			if (options.throwText) {
+				vi.spyOn(request, 'text').mockRejectedValue(new Error('Stream closed'));
+			}
+		} else if (options.throwBodyRead) {
+			const stream = new ReadableStream({
+				pull() {
+					throw new Error('Stream read error');
+				},
+			});
+			request = new Request('http://127.0.0.1:3000/api/evaluate', {
+				method: 'POST',
+				headers,
+				body: stream,
+				// @ts-expect-error duplex is required in Node fetch when body is a stream
+				duplex: 'half',
+			});
+		} else {
+			request = new Request('http://127.0.0.1:3000/api/evaluate', {
+				method: 'POST',
+				headers,
+				body: options.body,
+			});
 		}
 
 		return {
@@ -128,7 +150,7 @@ describe('POST /api/evaluate', () => {
 		expect(responseNaN.status).toBe(200);
 	});
 
-	it('rejects oversized requests based on actual body byte length', async () => {
+	it('rejects oversized requests based on streaming body byte length', async () => {
 		const handler = _createEvaluateHandler({ config: testConfig });
 		const largePayload = JSON.stringify({
 			fen: '8/8/8/8/8/8/8/K6k w - -',
@@ -146,6 +168,26 @@ describe('POST /api/evaluate', () => {
 		});
 	});
 
+	it('handles non-stream request body fallback and large payload check', async () => {
+		const mockClient = {
+			evaluatePosition: vi.fn().mockResolvedValue(sampleUpstreamResponse),
+		} as unknown as EvaluationClient;
+		const handler = _createEvaluateHandler({ config: testConfig, client: mockClient });
+
+		const nullBodyEvent = createMockEvent({ nullBody: true });
+		const nullBodyResponse = await handler(nullBodyEvent);
+		expect(nullBodyResponse.status).toBe(422);
+
+		const largeTextEvent = createMockEvent({ nullBody: true });
+		vi.spyOn(largeTextEvent.request, 'text').mockResolvedValue('x'.repeat(2000));
+		const largeTextResponse = await handler(largeTextEvent);
+		expect(largeTextResponse.status).toBe(413);
+
+		const throwTextEvent = createMockEvent({ nullBody: true, throwText: true });
+		const throwTextResponse = await handler(throwTextEvent);
+		expect(throwTextResponse.status).toBe(400);
+	});
+
 	it('fails closed when authentication fails', async () => {
 		const strictConfig: ServerConfig = {
 			...testConfig,
@@ -159,30 +201,15 @@ describe('POST /api/evaluate', () => {
 		const response = await handler(event);
 		expect(response.status).toBe(401);
 		const json = await response.json();
-		expect(json.code).toBe('AUTHENTICATION_FAILURE');
-	});
-
-	it('handles authentication failure with default fallback error message', async () => {
-		const mockValidator = {
-			validateRequest: vi.fn().mockResolvedValue({ authenticated: false }),
-		} as unknown as CloudflareAccessValidator;
-
-		const handler = _createEvaluateHandler({ config: testConfig, validator: mockValidator });
-		const event = createMockEvent({
-			body: JSON.stringify({ fen: '8/8/8/8/8/8/8/K6k w - -' }),
-		});
-
-		const response = await handler(event);
-		expect(response.status).toBe(401);
-		await expect(response.json()).resolves.toEqual({
+		expect(json).toEqual({
 			code: 'AUTHENTICATION_FAILURE',
 			error: 'Invalid or missing authentication credentials',
 		});
 	});
 
-	it('handles read request body failures', async () => {
+	it('handles read request body stream failure', async () => {
 		const handler = _createEvaluateHandler({ config: testConfig });
-		const event = createMockEvent({ throwText: true });
+		const event = createMockEvent({ throwBodyRead: true });
 
 		const response = await handler(event);
 		expect(response.status).toBe(400);
@@ -383,26 +410,25 @@ describe('POST /api/evaluate', () => {
 		expect(json.correlationId).toBeDefined();
 	});
 
-	it('supports client address resolution fallback when getClientAddress throws', async () => {
-		const mockClient = {
-			evaluatePosition: vi.fn().mockResolvedValue(sampleUpstreamResponse),
-		} as unknown as EvaluationClient;
-
+	it('rejects dev bypass when getClientAddress throws and client address is undefined', async () => {
 		const handler = _createEvaluateHandler({
 			config: testConfig,
-			client: mockClient,
 		});
 
 		const event = createMockEvent({
 			throwClientAddress: true,
 			headers: {
-				'x-forwarded-for': '127.0.0.1, 10.0.0.1',
+				'x-forwarded-for': '127.0.0.1',
 			},
 			body: JSON.stringify({ fen: '8/8/8/8/8/8/8/K6k w - -' }),
 		});
 
 		const response = await handler(event);
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(401);
+		await expect(response.json()).resolves.toEqual({
+			code: 'AUTHENTICATION_FAILURE',
+			error: 'Invalid or missing authentication credentials',
+		});
 	});
 
 	it('handles configuration load failures gracefully as 500 INTERNAL_FAILURE', async () => {

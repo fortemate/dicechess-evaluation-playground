@@ -150,7 +150,7 @@ describe('CloudflareAccessValidator', () => {
 
 		const result = await validator.validateRequest({ [CF_ACCESS_HEADER]: expiredJwt });
 		expect(result.authenticated).toBe(false);
-		expect(result.error).toContain('JWT validation failed');
+		expect(result.error).toBe('Invalid or missing authentication credentials');
 	});
 
 	it('rejects JWTs with invalid audience or issuer', async () => {
@@ -172,7 +172,7 @@ describe('CloudflareAccessValidator', () => {
 
 		const resultBadAud = await validator.validateRequest({ [CF_ACCESS_HEADER]: badAudJwt });
 		expect(resultBadAud.authenticated).toBe(false);
-		expect(resultBadAud.error).toContain('JWT validation failed');
+		expect(resultBadAud.error).toBe('Invalid or missing authentication credentials');
 
 		const badIssJwt = await new SignJWT({ sub: 'user-123' })
 			.setProtectedHeader({ alg: 'RS256', kid: 'test-key-id' })
@@ -184,14 +184,14 @@ describe('CloudflareAccessValidator', () => {
 
 		const resultBadIss = await validator.validateRequest({ [CF_ACCESS_HEADER]: badIssJwt });
 		expect(resultBadIss.authenticated).toBe(false);
-		expect(resultBadIss.error).toContain('JWT validation failed');
+		expect(resultBadIss.error).toBe('Invalid or missing authentication credentials');
 	});
 
 	it('rejects malformed JWT strings', async () => {
 		const validator = new CloudflareAccessValidator(testConfig);
 		const result = await validator.validateRequest({ [CF_ACCESS_HEADER]: 'malformed.token.here' });
 		expect(result.authenticated).toBe(false);
-		expect(result.error).toContain('JWT validation failed');
+		expect(result.error).toBe('Invalid or missing authentication credentials');
 	});
 
 	it('fails gracefully when key resolver throws Error or non-Error value', async () => {
@@ -212,7 +212,7 @@ describe('CloudflareAccessValidator', () => {
 			[CF_ACCESS_HEADER]: validStructureJwt,
 		});
 		expect(result.authenticated).toBe(false);
-		expect(result.error).toContain('JWKS key resolver not configured');
+		expect(result.error).toBe('Invalid or missing authentication credentials');
 
 		const nonErrorThrowingValidator = new CloudflareAccessValidator(testConfig, {
 			keyResolver: () => {
@@ -223,6 +223,6 @@ describe('CloudflareAccessValidator', () => {
 			[CF_ACCESS_HEADER]: validStructureJwt,
 		});
 		expect(nonErrorResult.authenticated).toBe(false);
-		expect(nonErrorResult.error).toContain('JWT verification failed');
+		expect(nonErrorResult.error).toBe('Invalid or missing authentication credentials');
 	});
 });
