@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: 2026 Jegors Čemisovs
+# SPDX-License-Identifier: AGPL-3.0-only
+
+name: dicechess-evaluation-playground
+
+services:
+  playground:
+    image: ${PLAYGROUND_IMAGE:?set PLAYGROUND_IMAGE to an immutable image digest}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    user: '10001:10001'
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    cpus: 0.50
+    mem_limit: 256m
+    stop_grace_period: 30s
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      BODY_SIZE_LIMIT: 64K
+      MAX_REQUEST_BODY_BYTES: '65536'
+      EVALUATOR_ORIGIN: http://evaluator:8000
+      EVALUATOR_BEARER_TOKEN: ${EVALUATION_INTERNAL_TOKEN:?set EVALUATION_INTERNAL_TOKEN}
+      EVALUATOR_TIMEOUT_MS: '12000'
+      MAX_CONCURRENT_EVALUATIONS: '2'
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:?set CF_ACCESS_TEAM_DOMAIN}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:?set CF_ACCESS_AUD}
+      ALLOW_DEV_AUTH_BYPASS: 'false'
+    ports:
+      - name: cloudflared-origin
+        target: 3000
+        published: ${PLAYGROUND_LOOPBACK_PORT:-3100}
+        host_ip: 127.0.0.1
+        protocol: tcp
+    networks:
+      - edge
+      - evaluation
+    depends_on:
+      evaluator:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/health').then((response) => {
+          if (!response.ok) process.exit(1); }).catch(() => process.exit(1));
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  evaluator:
+    image: ${EVALUATOR_IMAGE:?set EVALUATOR_IMAGE to an immutable image digest}
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    user: '10001:10001'
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    cpus: 2.00
+    mem_limit: 2g
+    stop_grace_period: 45s
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    environment:
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: '8000'
+      EVALUATION_INTERNAL_TOKEN: ${EVALUATION_INTERNAL_TOKEN:?set EVALUATION_INTERNAL_TOKEN}
+      ALLOW_UNAUTHENTICATED_DEV: 'false'
+      EV_MODEL_PATH: /model/model.onnx
+      MANIFEST_PATH: /model/manifest.json
+      CACHE_CAPACITY: '256'
+      MAX_CONCURRENT_ANALYSES: '2'
+      DEFAULT_TIMEOUT_MS: '10000'
+      MAX_HTTP_BODY_BYTES: '65536'
+      MAX_POSITION_BATCH_SIZE: '16'
+      MAX_INFERENCE_BATCH_SIZE: '16'
+      MAX_TURN_BATCH_SIZE: '2'
+      MAX_PLAYED_MOVE_COUNT: '3'
+      MAX_FEN_LENGTH: '256'
+      MAX_MOVE_LENGTH: '5'
+      MAX_DICE_LENGTH: '3'
+      MAX_PROFILE_LENGTH: '64'
+      MIN_TIMEOUT_MS: '100'
+      MAX_TIMEOUT_MS: '15000'
+      TURN_CANDIDATE_CHUNK_SIZE: '128'
+      FEATURE_EXTRACTION_PARALLELISM: '1'
+    labels:
+      com.fortemate.model.manifest.sha256: ${MODEL_MANIFEST_SHA256:?set MODEL_MANIFEST_SHA256}
+    volumes:
+      - type: bind
+        source: ${MODEL_PACKAGE_DIR:?set MODEL_PACKAGE_DIR}
+        target: /model
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - evaluation
+    healthcheck:
+      test:
+        - CMD
+        - /bin/bash
+        - -ec
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8000 &&
+          printf 'GET /ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          head -n 1 <&3 | grep -q ' 200 '
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: '3'
+
+networks:
+  edge: {}
+  evaluation:
+    internal: true

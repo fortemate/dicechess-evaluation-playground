@@ -29,6 +29,7 @@ npm run typecheck
 actionlint
 npm run test:coverage
 mise run test:contracts:evaluator
+mise run aurora:policy
 npm run build
 """
 
@@ -74,3 +75,11 @@ run = "docker build -t dicechess-evaluation-playground:local ."
 [tasks."container:smoke"]
 description = "Verify the local image boots as non-root and serves /health"
 run = "IMAGE=dicechess-evaluation-playground:local bash scripts/container-smoke.sh"
+
+[tasks."aurora:policy"]
+description = "Validate the bounded Aurora Compose policy without host secrets or model files"
+run = "bash scripts/validate-aurora-stack.sh --policy-only"
+
+[tasks."aurora:preflight"]
+description = "Validate the rendered Aurora stack and local model package before deployment"
+run = "bash scripts/validate-aurora-stack.sh --env-file deploy/aurora/.env"
