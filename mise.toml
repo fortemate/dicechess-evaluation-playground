@@ -3,6 +3,7 @@ node = "26.1.0"
 lefthook = "2.1.9"
 betterleaks = "1.5.0"
 actionlint = "1.7.12"
+hurl = "6.1.0"
 
 [tasks.setup]
 description = "Install dependencies and register Git hooks"
@@ -27,6 +28,7 @@ npm run format:check
 npm run typecheck
 actionlint
 npm run test:coverage
+mise run test:contracts:evaluator
 npm run build
 """
 
@@ -41,6 +43,10 @@ run = "npm run test"
 [tasks."test:coverage"]
 description = "Run Vitest with enforced coverage thresholds"
 run = "npm run test:coverage"
+
+[tasks."test:contracts:evaluator"]
+description = "Run evaluator black-box contract suite against a fixture or configured origin"
+run = "bash scripts/run-evaluator-contracts.sh"
 
 [tasks."test:e2e"]
 description = "Run Playwright against the built adapter-node server"

@@ -34,10 +34,29 @@ mise run dev
 ## Quality gates
 
 ```sh
-mise run check             # lint, format, types, workflow syntax, coverage, build
-mise run test:e2e:install  # one-time local Chromium install
-mise run test:e2e          # built adapter-node browser smoke
-mise run hook:run          # full secret scan plus pre-commit jobs on tracked files
+mise run check                      # lint, format, types, workflow syntax, coverage, contract tests, build
+mise run test:contracts:evaluator   # evaluator black-box contract gate
+mise run test:e2e:install           # one-time local Chromium install
+mise run test:e2e                   # built adapter-node browser smoke
+mise run hook:run                   # full secret scan plus pre-commit jobs on tracked files
+```
+
+## Evaluator contract testing
+
+The evaluator contract suite validates public liveness/readiness (`/health`, `/ready`), authentication rejection (missing and wrong bearer tokens on protected endpoints), `/version`, `/manifest`, invalid FEN handling, and position evaluation (`/api/v1/evaluate/position`) via Hurl.
+
+```sh
+mise run test:contracts:evaluator
+```
+
+By default, the task runs against a deterministic local fixture server. To test an external candidate (such as on Aurora), pass configuration via environment variables:
+
+```sh
+EVALUATOR_ORIGIN="https://evaluator.internal:8080" \
+EVALUATOR_BEARER_TOKEN="your-token" \
+EXPECTED_MODEL_ID="your-model-id" \
+EXPECTED_MODEL_SHA256="your-64-hex-sha256" \
+mise run test:contracts:evaluator
 ```
 
 The pre-commit hook scans staged changes for secrets, formats supported staged files, and validates changed GitHub Actions workflows. The pre-push hook runs `mise run check`.
