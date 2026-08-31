@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { createServer } from 'node:http';
-import { writeFileSync } from 'node:fs';
 
-const PORT = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 8088;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8088;
 const EXPECTED_TOKEN = process.env.EVALUATOR_BEARER_TOKEN || 'test-evaluator-token';
 const MODEL_ID = process.env.EXPECTED_MODEL_ID || 'dicechess-v1-test';
 const MODEL_SHA256 =
@@ -129,7 +128,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-	if (process.env.FIXTURE_READY_FILE) {
-		writeFileSync(process.env.FIXTURE_READY_FILE, 'ready', { encoding: 'utf8' });
-	}
+	// Listening
 });
