@@ -131,7 +131,7 @@ To roll back:
 
 1. Restore the previous immutable image references, model directory, manifest digest, and matching secrets in the local environment file.
 2. Run `mise run aurora:preflight`.
-3. Pull the prior digests and run `docker compose ... up -d --remove-orphans`.
+3. Pull the prior digests and run `docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml up -d --remove-orphans`.
 4. Wait for evaluator readiness, verify the loopback origin, run an explicit evaluation, and read back the running image/model provenance.
 5. If rollback cannot restore a healthy private stack, stop both containers and remove or disable the Tunnel route under the separately authorized Cloudflare procedure. Do not expose the evaluator as a workaround.
 
