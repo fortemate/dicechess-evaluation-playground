@@ -202,6 +202,7 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 
 		// Verify client build assets contain no evaluator origin or bearer token
 		const clientFiles = getAllFiles(resolve('build/client'));
+		expect(clientFiles.length).toBeGreaterThan(0);
 		for (const filePath of clientFiles) {
 			if (filePath.endsWith('.js') || filePath.endsWith('.html') || filePath.endsWith('.json')) {
 				const content = readFileSync(filePath, 'utf8');

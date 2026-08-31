@@ -11,9 +11,7 @@ import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 
 const EVALUATOR_PORT = process.env.FIXTURE_EVALUATOR_PORT
 	? Number.parseInt(process.env.FIXTURE_EVALUATOR_PORT, 10)
-	: process.env.PORT
-		? Number.parseInt(process.env.PORT, 10)
-		: 8088;
+	: 8088;
 
 const JWKS_PORT = process.env.FIXTURE_JWKS_PORT
 	? Number.parseInt(process.env.FIXTURE_JWKS_PORT, 10)
@@ -27,10 +25,22 @@ const MODEL_SHA256 =
 const CF_ACCESS_TEAM_DOMAIN = process.env.CF_ACCESS_TEAM_DOMAIN || `https://127.0.0.1:${JWKS_PORT}`;
 const CF_ACCESS_AUD = process.env.CF_ACCESS_AUD || 'e2e-aud-tag';
 
+// Verify openssl is available before attempting to generate ephemeral certificates
+try {
+	execFileSync('openssl', ['version'], { stdio: 'ignore' });
+} catch (error) {
+	throw new Error(
+		'The "openssl" CLI tool is required to generate the ephemeral TLS certificate for local HTTPS JWKS fixtures. Please ensure openssl is installed and on PATH.',
+		{ cause: error },
+	);
+}
+
 // Generate ephemeral TLS certificate for local HTTPS JWKS server
 const tempDir = mkdtempSync(join(tmpdir(), 'playground-e2e-tls-'));
 const keyPath = join(tempDir, 'tls-key.pem');
-const certPath = join(tempDir, 'tls-cert.pem');
+const rawCertPath = join(tempDir, 'tls-cert.pem');
+const caCertExportPath =
+	process.env.PLAYGROUND_CA_CERT || join(tmpdir(), 'dicechess-playground-ca.pem');
 
 execFileSync('openssl', [
 	'req',
@@ -41,7 +51,7 @@ execFileSync('openssl', [
 	'-keyout',
 	keyPath,
 	'-out',
-	certPath,
+	rawCertPath,
 	'-days',
 	'1',
 	'-subj',
@@ -51,7 +61,8 @@ execFileSync('openssl', [
 ]);
 
 const tlsKey = readFileSync(keyPath);
-const tlsCert = readFileSync(certPath);
+const tlsCert = readFileSync(rawCertPath);
+writeFileSync(caCertExportPath, tlsCert, { encoding: 'utf8' });
 
 // Generate RSA keypair for Cloudflare Access JWT signing and verification
 const { publicKey, privateKey } = await generateKeyPair('RS256', { extractable: true });
@@ -254,6 +265,11 @@ function cleanup() {
 	}
 	try {
 		rmSync(tempDir, { recursive: true, force: true });
+	} catch {
+		// Ignore
+	}
+	try {
+		rmSync(caCertExportPath, { force: true });
 	} catch {
 		// Ignore
 	}
