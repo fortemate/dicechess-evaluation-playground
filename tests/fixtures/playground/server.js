@@ -119,134 +119,128 @@ function sendJson(res, status, payload) {
 	res.end(JSON.stringify(payload));
 }
 
-// 1. Evaluator HTTP server
-const evaluatorServer = createHttpServer(async (req, res) => {
-	const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-	const authHeader = req.headers['authorization'];
-
-	if (req.method === 'GET' && url.pathname === '/health') {
-		return sendJson(res, 200, { status: 'ok' });
-	}
-
-	if (req.method === 'GET' && url.pathname === '/ready') {
-		return sendJson(res, 200, { status: 'ready' });
-	}
-
-	if (req.method === 'GET' && url.pathname === '/version') {
-		return sendJson(res, 200, {
-			version: '0.1.0',
-			engineVersion: '0.1.0',
+/**
+ * @param {string} body
+ * @param {import('node:http').ServerResponse} res
+ */
+function sendEvaluationResponse(body, res) {
+	/** @type {any} */
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return sendJson(res, 400, {
+			code: 'INVALID_REQUEST',
+			error: 'Invalid JSON request body',
 		});
 	}
 
-	if (req.method === 'GET' && url.pathname === '/manifest') {
-		return sendJson(res, 200, {
+	if (!parsed || typeof parsed.fen !== 'string' || parsed.fen === 'invalid_fen_string') {
+		return sendJson(res, 422, {
+			code: 'INVALID_FEN',
+			error: 'Invalid FEN',
+		});
+	}
+
+	const fenParts = parsed.fen.trim().split(/\s+/);
+	if (fenParts.length < 2) {
+		return sendJson(res, 422, {
+			code: 'INVALID_FEN',
+			error: 'Invalid FEN format',
+		});
+	}
+
+	const sideToMove = fenParts[1];
+	if (sideToMove !== 'w' && sideToMove !== 'b') {
+		return sendJson(res, 422, {
+			code: 'INVALID_FEN',
+			error: 'Invalid side to move in FEN',
+		});
+	}
+
+	return sendJson(res, 200, {
+		fen: parsed.fen,
+		sideToMove,
+		winProbability: 0.52,
+		provenance: {
+			engineVersion: '0.1.0',
+			rulesetVersion: '1.0.0',
 			modelId: MODEL_ID,
 			modelSha256: MODEL_SHA256,
-		});
-	}
-
-	// Test helper endpoint to obtain test JWTs
-	if (req.method === 'GET' && url.pathname === '/test/token') {
-		const expired = url.searchParams.get('expired') === 'true';
-		const badAudience = url.searchParams.get('badAudience') === 'true';
-		const badIssuer = url.searchParams.get('badIssuer') === 'true';
-		const sub = url.searchParams.get('sub') || undefined;
-		const email = url.searchParams.get('email') || undefined;
-
-		const token = await createTestJwt({
-			expired,
-			badAudience,
-			badIssuer,
-			sub,
-			email,
-		});
-
-		return sendJson(res, 200, { token });
-	}
-
-	if (req.method === 'GET' && url.pathname === '/test/stats') {
-		return sendJson(res, 200, { evaluationRequestCount });
-	}
-
-	if (req.method === 'POST' && url.pathname === '/test/reset') {
-		evaluationRequestCount = 0;
-		return sendJson(res, 200, { evaluationRequestCount });
-	}
-
-	// Protected position evaluation endpoint
-	if (req.method === 'POST' && url.pathname === '/api/v1/evaluate/position') {
-		evaluationRequestCount += 1;
-		if (!authHeader || authHeader !== `Bearer ${EXPECTED_TOKEN}`) {
-			return sendJson(res, 401, {
-				code: 'AUTHENTICATION_FAILURE',
-				error: 'Invalid or missing authentication credentials',
-			});
-		}
-
-		let body = '';
-		req.on('data', (chunk) => {
-			body += chunk;
-		});
-		req.on('end', () => {
-			/** @type {any} */
-			let parsed;
-			try {
-				parsed = JSON.parse(body);
-			} catch {
-				return sendJson(res, 400, {
-					code: 'INVALID_REQUEST',
-					error: 'Invalid JSON request body',
-				});
-			}
-
-			if (!parsed || typeof parsed.fen !== 'string' || parsed.fen === 'invalid_fen_string') {
-				return sendJson(res, 422, {
-					code: 'INVALID_FEN',
-					error: 'Invalid FEN',
-				});
-			}
-
-			const fenParts = parsed.fen.trim().split(/\s+/);
-			if (fenParts.length < 2) {
-				return sendJson(res, 422, {
-					code: 'INVALID_FEN',
-					error: 'Invalid FEN format',
-				});
-			}
-
-			const sideToMove = fenParts[1];
-			if (sideToMove !== 'w' && sideToMove !== 'b') {
-				return sendJson(res, 422, {
-					code: 'INVALID_FEN',
-					error: 'Invalid side to move in FEN',
-				});
-			}
-
-			return sendJson(res, 200, {
-				fen: parsed.fen,
-				sideToMove,
-				winProbability: 0.52,
-				provenance: {
-					engineVersion: '0.1.0',
-					rulesetVersion: '1.0.0',
-					modelId: MODEL_ID,
-					modelSha256: MODEL_SHA256,
-					featureSchema: 'v1',
-					evaluationProfile: parsed.profile || 'standard',
-					algorithm: 'nnue',
-					searchParameters: {},
-				},
-			});
-		});
-		return;
-	}
-
-	return sendJson(res, 404, {
-		code: 'INVALID_REQUEST',
-		error: 'Not found',
+			featureSchema: 'v1',
+			evaluationProfile: parsed.profile || 'standard',
+			algorithm: 'nnue',
+			searchParameters: {},
+		},
 	});
-});
+}
+
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
+ */
+function handleEvaluationRequest(req, res) {
+	evaluationRequestCount += 1;
+	if (req.headers['authorization'] !== `Bearer ${EXPECTED_TOKEN}`) {
+		return sendJson(res, 401, {
+			code: 'AUTHENTICATION_FAILURE',
+			error: 'Invalid or missing authentication credentials',
+		});
+	}
+
+	let body = '';
+	req.on('data', (chunk) => {
+		body += chunk;
+	});
+	req.on('end', () => sendEvaluationResponse(body, res));
+}
+
+/**
+ * @param {URL} url
+ * @param {import('node:http').ServerResponse} res
+ */
+async function sendTestToken(url, res) {
+	const token = await createTestJwt({
+		expired: url.searchParams.get('expired') === 'true',
+		badAudience: url.searchParams.get('badAudience') === 'true',
+		badIssuer: url.searchParams.get('badIssuer') === 'true',
+		sub: url.searchParams.get('sub') || undefined,
+		email: url.searchParams.get('email') || undefined,
+	});
+	return sendJson(res, 200, { token });
+}
+
+/**
+ * @param {import('node:http').IncomingMessage} req
+ * @param {import('node:http').ServerResponse} res
+ */
+async function handleEvaluatorRequest(req, res) {
+	const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+	switch (`${req.method} ${url.pathname}`) {
+		case 'GET /health':
+			return sendJson(res, 200, { status: 'ok' });
+		case 'GET /ready':
+			return sendJson(res, 200, { status: 'ready' });
+		case 'GET /version':
+			return sendJson(res, 200, { version: '0.1.0', engineVersion: '0.1.0' });
+		case 'GET /manifest':
+			return sendJson(res, 200, { modelId: MODEL_ID, modelSha256: MODEL_SHA256 });
+		case 'GET /test/token':
+			return sendTestToken(url, res);
+		case 'GET /test/stats':
+			return sendJson(res, 200, { evaluationRequestCount });
+		case 'POST /test/reset':
+			evaluationRequestCount = 0;
+			return sendJson(res, 200, { evaluationRequestCount });
+		case 'POST /api/v1/evaluate/position':
+			return handleEvaluationRequest(req, res);
+		default:
+			return sendJson(res, 404, { code: 'INVALID_REQUEST', error: 'Not found' });
+	}
+}
+
+// 1. Evaluator HTTP server
+const evaluatorServer = createHttpServer(handleEvaluatorRequest);
 
 // 2. Cloudflare Access HTTPS JWKS server
 const jwksServer = createHttpsServer({ key: tlsKey, cert: tlsCert }, (req, res) => {

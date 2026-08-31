@@ -234,8 +234,8 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		expect(clientFiles.length).toBeGreaterThan(0);
 		for (const filePath of clientFiles) {
 			const content = readFileSync(filePath);
-			expect(content.includes(Buffer.from(EVALUATOR_ORIGIN))).toBe(false);
-			expect(content.includes(Buffer.from(EVALUATOR_BEARER_TOKEN))).toBe(false);
+			expect(content).not.toContain(Buffer.from(EVALUATOR_ORIGIN));
+			expect(content).not.toContain(Buffer.from(EVALUATOR_BEARER_TOKEN));
 		}
 
 		expect(await getEvaluationRequestCount()).toBe(1);
