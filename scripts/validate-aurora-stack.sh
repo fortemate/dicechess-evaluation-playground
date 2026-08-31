@@ -163,12 +163,28 @@ const evaluatorNativeTmp = evaluator.tmpfs.find((mount) =>
   String(mount).startsWith('/onnxruntime-tmp:'),
 );
 assert(evaluatorNativeTmp, 'evaluator must provide scoped temporary storage for ONNX Runtime JNI libraries');
-for (const option of ['exec', 'nodev', 'nosuid', 'size=']) {
+const evaluatorNativeTmpSpec = String(evaluatorNativeTmp);
+const evaluatorNativeTmpOptions = evaluatorNativeTmpSpec
+  .slice(evaluatorNativeTmpSpec.indexOf(':') + 1)
+  .split(',');
+const evaluatorNativeTmpOptionSet = new Set(evaluatorNativeTmpOptions);
+for (const option of ['rw', 'exec', 'nodev', 'nosuid']) {
   assert(
-    String(evaluatorNativeTmp).includes(option),
+    evaluatorNativeTmpOptionSet.has(option),
     `evaluator ONNX Runtime tmpfs must include ${option}`,
   );
 }
+assert(
+  !evaluatorNativeTmpOptionSet.has('noexec'),
+  'evaluator ONNX Runtime tmpfs must not disable exec',
+);
+const evaluatorNativeTmpSizeOptions = evaluatorNativeTmpOptions.filter((option) =>
+  option.startsWith('size='),
+);
+assert(
+  evaluatorNativeTmpSizeOptions.length === 1 && evaluatorNativeTmpSizeOptions[0] === 'size=64m',
+  'evaluator ONNX Runtime tmpfs must use exactly size=64m',
+);
 
 const allPublishedPorts = Object.entries(services).flatMap(([name, service]) =>
   (service.ports ?? []).map((port) => ({ serviceName: name, ...port })),

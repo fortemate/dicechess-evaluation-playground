@@ -15,7 +15,7 @@ The Compose project runs two non-root containers:
 cloudflared on Aurora -> 127.0.0.1:3100 -> playground/BFF -> private network -> evaluator
 ```
 
-Only the playground publishes a host port, and it binds IPv4 loopback. The evaluator has no host port and joins only the internal `evaluation` network. Its model directory is mounted read-only. Both services have read-only root filesystems, all Linux capabilities dropped, `no-new-privileges`, PID/CPU/memory limits, bounded writable `tmpfs`, bounded application concurrency and rotated local logs. General-purpose temporary storage remains `noexec`; the evaluator has a separate 64 MiB `exec,nodev,nosuid` tmpfs used only for Java ONNX Runtime JNI extraction.
+Only the playground publishes a host port, and it binds IPv4 loopback. The evaluator has no host port and joins only the internal `evaluation` network. Its model directory is mounted read-only. Both services have read-only root filesystems, all Linux capabilities dropped, `no-new-privileges`, PID/CPU/memory limits, bounded writable `tmpfs`, bounded application concurrency and rotated local logs. General-purpose temporary storage remains `noexec`; the evaluator has a separate 64 MiB `exec,nodev,nosuid` tmpfs configured through `JAVA_TOOL_OPTIONS` as the JVM default temporary directory. Any Java code using the default temporary-file location can write there; executable access is required for ONNX Runtime JNI extraction.
 
 The playground `/health` endpoint proves only process liveness. Compose waits for the evaluator `/ready` endpoint, which proves that the configured model loaded, before starting the playground. A healthy playground must never be interpreted as evaluator readiness.
 
