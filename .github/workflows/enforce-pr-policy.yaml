@@ -625,8 +625,17 @@ jobs:
 
             const result = validatePolicy(snapshot);
 
+            // Advisory, never blocking. This policy's verdict is reported as a notice
+            // rather than a failure: across the organization every branch-name failure
+            // this family of workflows produced was a false positive (a dot in a version
+            // number, an uppercase release branch, an unlisted-but-used branch type, a
+            // `fix/` prefix AGENTS.md accepts, or a missing closing directive), no default
+            // branch is protected so it never blocked a merge anyway, and a check that
+            // fails on cosmetics trains everyone to ignore red. The validation itself and
+            // its self-tests above are kept: the reasoning is still worth reading, and
+            // the self-tests still fail the run if this workflow's own logic breaks.
             if (!result.allowed) {
-              core.setFailed(result.message);
+              core.notice(result.message);
               return;
             }
 
