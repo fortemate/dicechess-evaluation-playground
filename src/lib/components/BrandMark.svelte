@@ -10,7 +10,9 @@
 	import mark from '$lib/assets/fortemate-mark.svg';
 </script>
 
-<span class="brand-mark" style="--brand-mark: url({mark})" role="img" aria-label="Fortemate"></span>
+<!-- Quoted: Vite may inline the asset as a data URI containing apostrophes. -->
+<span class="brand-mark" style={`--brand-mark: url("${mark}")`} role="img" aria-label="Fortemate"
+></span>
 
 <style>
 	.brand-mark {
@@ -18,7 +20,9 @@
 		width: 1em;
 		height: 1em;
 		background-color: currentColor;
-		-webkit-mask: var(--brand-mark) center / contain no-repeat;
-		mask: var(--brand-mark) center / contain no-repeat;
+		mask-image: var(--brand-mark);
+		mask-position: center;
+		mask-size: contain;
+		mask-repeat: no-repeat;
 	}
 </style>
