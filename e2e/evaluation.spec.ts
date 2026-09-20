@@ -116,22 +116,21 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 
 		// Verify initial page load and idle evaluation panel state
 		await expect(page.getByRole('heading', { name: 'Evaluation Playground' })).toBeVisible();
-		const canonicalFen = page.getByRole('status');
-		await expect(canonicalFen).toHaveText('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -');
+		const fenInput = page.getByLabel('FEN', { exact: true });
+		await expect(fenInput).toHaveValue('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -');
 		await expect(
 			page.getByText('No evaluation has been requested for this position.'),
 		).toBeVisible();
 
 		// Step 1: Import a custom FEN with mixed castling and multiple en-passant squares
-		const fenInput = page.getByLabel('Import FEN');
 		await fenInput.fill('8/8/8/8/8/8/8/K6k b qK e3a3 0 1');
 		await page.getByRole('button', { name: 'Import' }).click();
-		await expect(canonicalFen).toHaveText('8/8/8/8/8/8/8/K6k b Kq a3e3');
+		await expect(fenInput).toHaveValue('8/8/8/8/8/8/8/K6k b Kq a3e3');
 
 		// Step 2: Stamp a black knight on b4 from the spare-piece palette
 		await page.getByRole('button', { name: 'Black knight' }).click();
 		await page.getByRole('gridcell', { name: 'b4, empty' }).click();
-		await expect(canonicalFen).toHaveText('8/8/8/8/1n6/8/8/K6k b Kq a3e3');
+		await expect(fenInput).toHaveValue('8/8/8/8/1n6/8/8/K6k b Kq a3e3');
 
 		// Step 3: Move the knight from b4 to c6 with the keyboard board
 		await page.getByRole('button', { name: 'Move', exact: true }).click();
@@ -141,22 +140,22 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		await page.keyboard.press('ArrowUp');
 		await page.keyboard.press('ArrowRight');
 		await page.keyboard.press('Enter');
-		await expect(canonicalFen).toHaveText('8/8/2n5/8/8/8/8/K6k b Kq a3e3');
+		await expect(fenInput).toHaveValue('8/8/2n5/8/8/8/8/K6k b Kq a3e3');
 
 		// Step 4: Change explicit side to move to White
 		await page.getByRole('radio', { name: 'White' }).check();
-		await expect(canonicalFen).toHaveText('8/8/2n5/8/8/8/8/K6k w Kq a3e3');
+		await expect(fenInput).toHaveValue('8/8/2n5/8/8/8/8/K6k w Kq a3e3');
 
 		// Step 5: Toggle off Black queenside castling right
 		await page.getByRole('checkbox', { name: 'Black queenside' }).uncheck();
-		await expect(canonicalFen).toHaveText('8/8/2n5/8/8/8/8/K6k w K a3e3');
+		await expect(fenInput).toHaveValue('8/8/2n5/8/8/8/8/K6k w K a3e3');
 
 		// Step 6: Update explicit en-passant target to c3
 		const enPassantInput = page.getByLabel('En-passant target(s)');
 		await enPassantInput.fill('c3');
 		await page.getByRole('button', { name: 'Apply' }).click();
 		const expectedFen = '8/8/2n5/8/8/8/8/K6k w K c3';
-		await expect(canonicalFen).toHaveText(expectedFen);
+		await expect(fenInput).toHaveValue(expectedFen);
 
 		// Verify that all board and position editor interactions produced zero evaluation requests
 		expect(evaluateRequests).toHaveLength(0);
@@ -197,7 +196,7 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 
 		// Step 9: Modify editor state post-evaluation and verify the stale result notice appears
 		await page.getByRole('radio', { name: 'Black' }).check();
-		await expect(canonicalFen).toHaveText('8/8/2n5/8/8/8/8/K6k b K c3');
+		await expect(fenInput).toHaveValue('8/8/2n5/8/8/8/8/K6k b K c3');
 		await expect(page.locator('.stale-notice')).toHaveText(
 			'The editor changed after this request. This result belongs to the submitted FEN below.',
 		);

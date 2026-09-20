@@ -132,8 +132,7 @@
 
 <style>
 	.evaluation-result {
-		min-height: 5.5rem;
-		padding: 1rem;
+		padding: 0.85rem;
 		border: 1px solid rgb(148 163 184 / 16%);
 		border-radius: 1rem;
 		background: rgb(8 12 22 / 54%);

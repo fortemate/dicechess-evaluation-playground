@@ -117,15 +117,15 @@
 </script>
 
 <section class="evaluation-panel" aria-labelledby="evaluation-title">
-	<header class="panel-heading">
+	<div class="evaluation-actions">
 		<div>
 			<p class="section-kicker">Explicit evaluation</p>
-			<h2 id="evaluation-title">Request one model evaluation</h2>
+			<h3 id="evaluation-title">Model evaluation</h3>
+			<p>
+				One click sends the canonical FEN through the protected same-origin gateway. No automatic
+				evaluation, retries or prefetch.
+			</p>
 		</div>
-		<p>One click sends the current canonical FEN through the same-origin protected BFF.</p>
-	</header>
-
-	<div class="evaluation-actions">
 		<button
 			type="button"
 			onclick={evaluate}
@@ -134,7 +134,6 @@
 		>
 			{status === 'pending' ? 'Evaluating…' : 'Evaluate position'}
 		</button>
-		<p>No automatic evaluation, retry, or prefetch.</p>
 	</div>
 
 	{#if !valid}
@@ -156,57 +155,48 @@
 <style>
 	.evaluation-panel {
 		box-sizing: border-box;
-		width: min(100%, 76rem);
-		padding: clamp(1rem, 3vw, 2rem);
-		border: 1px solid rgb(148 163 184 / 18%);
-		border-radius: 1.5rem;
-		background: rgb(15 23 42 / 78%);
-		box-shadow: 0 2rem 6rem rgb(0 0 0 / 22%);
+		display: grid;
+		gap: 0.75rem;
+		padding: 0.85rem;
+		border: 1px solid rgb(148 163 184 / 16%);
+		border-radius: 0.85rem;
+		background: rgb(8 12 22 / 54%);
 	}
 
-	.panel-heading {
+	.evaluation-actions {
 		display: flex;
-		align-items: end;
+		align-items: start;
 		justify-content: space-between;
-		gap: 1.5rem;
-		margin-bottom: 1.25rem;
+		gap: 0.75rem;
 	}
 
-	.panel-heading h2 {
-		margin: 0;
-		font-size: clamp(1.45rem, 4vw, 2rem);
-		letter-spacing: -0.03em;
+	.evaluation-actions h3 {
+		margin: 0 0 0.25rem;
+		font-size: 1rem;
 	}
 
-	.panel-heading > p,
-	.evaluation-actions p {
-		max-width: 31rem;
+	.evaluation-actions p:last-child {
 		margin: 0;
 		color: #aab5c5;
-		line-height: 1.55;
+		font-size: 0.78rem;
+		line-height: 1.45;
 	}
 
 	.section-kicker {
-		margin: 0 0 0.35rem;
+		margin: 0 0 0.25rem;
 		color: #60a5fa;
-		font-size: 0.72rem;
+		font-size: 0.7rem;
 		font-weight: 750;
 		letter-spacing: 0.14em;
 		text-transform: uppercase;
 	}
 
-	.evaluation-actions {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		margin-bottom: 1rem;
-	}
-
 	button {
-		min-height: 2.9rem;
+		flex: 0 0 auto;
+		min-height: 2.6rem;
 		border: 1px solid #3b82f6;
-		border-radius: 0.7rem;
-		padding: 0.7rem 1.15rem;
+		border-radius: 0.65rem;
+		padding: 0.55rem 1rem;
 		color: #eff6ff;
 		background: #2563eb;
 		font: inherit;
@@ -229,16 +219,17 @@
 	}
 
 	.validation-message {
-		margin: 0 0 1rem;
-		padding: 0.75rem;
+		margin: 0;
+		padding: 0.65rem 0.75rem;
 		border: 1px solid rgb(251 113 133 / 35%);
 		border-radius: 0.75rem;
 		color: #fecdd3;
 		background: rgb(136 19 55 / 20%);
+		font-size: 0.82rem;
+		line-height: 1.45;
 	}
 
 	@media (max-width: 42rem) {
-		.panel-heading,
 		.evaluation-actions {
 			align-items: stretch;
 			flex-direction: column;
