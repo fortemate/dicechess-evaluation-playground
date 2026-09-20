@@ -78,7 +78,7 @@ docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml up -d
 docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml ps
 ```
 
-`pull` is intentionally separate from preflight, and it is the only step that contacts the registry: the services use `pull_policy: if_not_present`, so `up` reuses an already pulled digest and never pulls on its own. Images are pinned by immutable digest, which makes a pull on every start redundant. There is no workflow in this repository that changes Aurora.
+`pull` is intentionally separate from preflight. The services use `pull_policy: if_not_present`: `up` reuses a digest that is already in the local image store and pulls only when it is absent, for example on a first deployment, after an image prune, or after an incomplete `pull`. Run `pull` explicitly during the window so that registry access happens as its own recorded step and `up` only starts containers. There is no workflow in this repository that changes Aurora.
 
 For a containerized Tunnel connector, update its separately owner-controlled Compose configuration during the approved Cloudflare change window:
 
