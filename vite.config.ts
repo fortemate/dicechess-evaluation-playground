@@ -6,6 +6,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), svelteTesting()],
 	test: {
+		sharedViteServer: false,
 		expect: { requireAssertions: true },
 		coverage: {
 			provider: 'v8',
