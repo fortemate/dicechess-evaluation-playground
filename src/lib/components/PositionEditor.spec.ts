@@ -86,7 +86,7 @@ describe('PositionEditor', () => {
 			expect.objectContaining({ orientation: 'white' }),
 		);
 		expect(screen.getByRole('heading', { name: 'Build a test position' })).toBeTruthy();
-		expect(screen.getByLabelText('Import FEN')).toBeTruthy();
+		expect(screen.getByLabelText('FEN')).toBeTruthy();
 		expect(board().getAttribute('aria-describedby')).toBe('board-help');
 
 		const squares = screen.getAllByRole('gridcell');
@@ -122,7 +122,7 @@ describe('PositionEditor', () => {
 		const user = userEvent.setup();
 		const onchange = vi.fn<(state: PositionState) => void>();
 		await renderEditor({ onchange });
-		const input = screen.getByLabelText<HTMLInputElement>('Import FEN');
+		const input = screen.getByLabelText<HTMLInputElement>('FEN');
 
 		await user.clear(input);
 		await user.type(input, '8/8/8/8/8/8/8/K6k b qK e3a3 0 1');
@@ -145,7 +145,7 @@ describe('PositionEditor', () => {
 		const user = userEvent.setup();
 		const onchange = vi.fn();
 		render(PositionEditor, { onchange });
-		const input = screen.getByLabelText<HTMLInputElement>('Import FEN');
+		const input = screen.getByLabelText<HTMLInputElement>('FEN');
 
 		await user.clear(input);
 		await user.type(input, 'not a position');
@@ -163,7 +163,7 @@ describe('PositionEditor', () => {
 		const user = userEvent.setup();
 		const onvaliditychange = vi.fn<(valid: boolean) => void>();
 		render(PositionEditor, { onvaliditychange });
-		const input = screen.getByLabelText<HTMLInputElement>('Import FEN');
+		const input = screen.getByLabelText<HTMLInputElement>('FEN');
 
 		await user.clear(input);
 		await user.type(input, 'not a position');

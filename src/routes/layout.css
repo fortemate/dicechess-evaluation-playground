@@ -31,7 +31,7 @@ body {
 
 main {
 	min-height: 0;
-	padding: clamp(1rem, 4vw, 3rem);
+	padding: clamp(0.75rem, 2vw, 1.25rem);
 	background: radial-gradient(circle at top left, rgb(37 99 235 / 18%), transparent 34rem), #0a0f1c;
 }
 
@@ -41,7 +41,7 @@ main {
 	align-items: center;
 	justify-content: center;
 	gap: 0.45rem;
-	padding: 0.9rem 1.25rem;
+	padding: 0.5rem 1.25rem;
 	border-top: 1px solid rgb(148 163 184 / 16%);
 	color: #94a3b8;
 	background: #080c16;
@@ -55,18 +55,31 @@ main {
 .playground-page {
 	display: grid;
 	justify-items: center;
-	gap: 1.5rem;
 }
 
+.playground-shell {
+	display: grid;
+	gap: 0.5rem;
+	width: fit-content;
+	max-width: 100%;
+}
+
+/* A slim header: the board, not the title, owns the viewport. */
 .page-header {
-	width: min(100%, 76rem);
-	padding-block: clamp(1rem, 3vw, 2.5rem) 0.5rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: end;
+	justify-content: space-between;
+	gap: 0.5rem 1.5rem;
+	box-sizing: border-box;
+	width: 100%;
+	padding-inline: 0.25rem;
 }
 
 .eyebrow {
-	margin: 0 0 0.75rem;
+	margin: 0 0 0.15rem;
 	color: #60a5fa;
-	font-size: 0.75rem;
+	font-size: 0.68rem;
 	font-weight: 700;
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
@@ -74,46 +87,34 @@ main {
 
 h1 {
 	margin: 0;
-	font-size: clamp(2.25rem, 6vw, 4.25rem);
-	line-height: 0.95;
-	letter-spacing: -0.05em;
+	font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+	line-height: 1.1;
+	letter-spacing: -0.03em;
 }
 
-.lede {
-	max-width: 38rem;
-	margin: 1.5rem 0;
+.page-about {
+	max-width: 40rem;
 	color: #aab5c5;
-	font-size: 1.05rem;
-	line-height: 1.7;
-}
-
-.state-preview {
-	display: grid;
-	width: min(100%, 76rem);
-	box-sizing: border-box;
-	grid-template-columns: minmax(12rem, 0.35fr) minmax(0, 1fr);
-	gap: 1rem;
-	align-items: center;
-	padding: 1.2rem 1.4rem;
-	border: 1px solid rgb(148 163 184 / 16%);
-	border-radius: 1rem;
-	background: rgb(15 23 42 / 68%);
-}
-
-.state-preview h2 {
-	margin: 0;
-	font-size: 1rem;
-}
-
-.state-preview output {
-	overflow-wrap: anywhere;
-	padding: 0.85rem 1rem;
-	border-radius: 0.75rem;
-	color: #bfdbfe;
-	background: #080c16;
-	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	font-size: 0.82rem;
 	line-height: 1.5;
+}
+
+.page-about summary {
+	width: fit-content;
+	margin-left: auto;
+	color: #93c5fd;
+	font-weight: 650;
+	cursor: pointer;
+}
+
+.page-about summary:focus-visible {
+	border-radius: 0.25rem;
+	outline: 0.2rem solid #60a5fa;
+	outline-offset: 0.2rem;
+}
+
+.page-about p {
+	margin: 0.4rem 0 0;
 }
 
 a {
@@ -133,7 +134,7 @@ a:focus-visible {
 }
 
 @media (max-width: 42rem) {
-	.state-preview {
-		grid-template-columns: minmax(0, 1fr);
+	.page-about summary {
+		margin-left: 0;
 	}
 }

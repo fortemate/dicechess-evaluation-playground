@@ -6,7 +6,7 @@
 	import '@lichess-org/chessground/assets/chessground.brown.css';
 	import '@lichess-org/chessground/assets/chessground.cburnett.css';
 
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
 	import {
 		canonicalizeCastlingRights,
@@ -46,9 +46,11 @@
 	interface Props {
 		onchange?: (state: PositionState) => void;
 		onvaliditychange?: (valid: boolean) => void;
+		/** Rendered at the end of the controls column, next to the explicit-state fields. */
+		aside?: Snippet;
 	}
 
-	let { onchange, onvaliditychange }: Props = $props();
+	let { onchange, onvaliditychange, aside }: Props = $props();
 
 	const PIECE_NAMES = Object.fromEntries(
 		EDITOR_PIECES.map((piece) => [piece.symbol, piece.label.toLowerCase()]),
@@ -524,121 +526,108 @@
 {/snippet}
 
 <section class="position-editor" aria-labelledby="position-editor-title">
-	<header class="editor-heading">
-		<div>
-			<p class="section-kicker">Position editor</p>
-			<h2 id="position-editor-title">Build a test position</h2>
-		</div>
-		<p>Editing stays local. Evaluation only happens from a later explicit action.</p>
-	</header>
-
-	<form class="fen-import" onsubmit={importFen} novalidate>
-		<label for="position-fen">Import FEN</label>
-		<div class="field-row">
-			<input
-				id="position-fen"
-				bind:this={fenInputElement}
-				bind:value={fenDraft}
-				oninput={handleFenDraftInput}
-				aria-describedby={fenError ? 'fen-error' : 'fen-help'}
-				aria-invalid={fenError ? 'true' : 'false'}
-				autocomplete="off"
-				spellcheck="false"
-			/>
-			<button type="submit">Import</button>
-		</div>
-		<p id="fen-help" class="field-help">
-			Four- or six-field FEN; move counters are validated then omitted.
-		</p>
-		{#if fenError}
-			<p id="fen-error" class="field-error" role="alert">{fenError}</p>
-		{/if}
-	</form>
+	<h2 id="position-editor-title" class="visually-hidden">Build a test position</h2>
 
 	<div class="editor-layout" data-testid="editor-layout">
 		<div class="board-column">
-			{@render spareRow(topSpares, orientation === 'white' ? 'Black' : 'White')}
+			<div class="board-kit">
+				{@render spareRow(topSpares, orientation === 'white' ? 'Black' : 'White')}
 
-			<div class="board-stage" data-tool={toolKind}>
-				<div bind:this={boardElement} class="chessground-host" aria-hidden="true"></div>
-				<div
-					bind:this={squareGridElement}
-					class="square-grid"
-					role="grid"
-					tabindex="-1"
-					aria-label="Editable Dice Chess board"
-					aria-describedby="board-help"
-					aria-rowcount="8"
-					aria-colcount="8"
-					onkeydown={handleSquareKeydown}
-				>
-					{#each displayRanks as rank (rank)}
-						<div class="square-row" role="row">
-							{#each displayFiles as file (file)}
-								{@const square = `${file}${rank}` as Square}
-								<button
-									type="button"
-									role="gridcell"
-									class="square"
-									data-square={square}
-									data-held={heldSquare === square ? 'true' : undefined}
-									tabindex={focusedSquare === square ? 0 : -1}
-									aria-label={squareLabel(square)}
-									onclick={() => applyToolToSquare(square)}
-									onfocus={() => (focusedSquare = square)}
-								></button>
-							{/each}
-						</div>
-					{/each}
+				<div class="board-stage" data-tool={toolKind}>
+					<div bind:this={boardElement} class="chessground-host" aria-hidden="true"></div>
+					<div
+						bind:this={squareGridElement}
+						class="square-grid"
+						role="grid"
+						tabindex="-1"
+						aria-label="Editable Dice Chess board"
+						aria-describedby="board-help"
+						aria-rowcount="8"
+						aria-colcount="8"
+						onkeydown={handleSquareKeydown}
+					>
+						{#each displayRanks as rank (rank)}
+							<div class="square-row" role="row">
+								{#each displayFiles as file (file)}
+									{@const square = `${file}${rank}` as Square}
+									<button
+										type="button"
+										role="gridcell"
+										class="square"
+										data-square={square}
+										data-held={heldSquare === square ? 'true' : undefined}
+										tabindex={focusedSquare === square ? 0 : -1}
+										aria-label={squareLabel(square)}
+										onclick={() => applyToolToSquare(square)}
+										onfocus={() => (focusedSquare = square)}
+									></button>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				{@render spareRow(bottomSpares, orientation === 'white' ? 'White' : 'Black')}
+
+				<div class="board-toolbar">
+					<div class="tool-group" role="group" aria-label="Board tool">
+						<button
+							type="button"
+							class="tool"
+							aria-pressed={tool === 'move'}
+							onclick={() => selectTool('move')}
+						>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M12 3v18M3 12h18m-9-9-3 3m3-3 3 3m-3 15-3-3m3 3 3-3M3 12l3-3m-3 3 3 3m15-3-3-3m3 3-3 3"
+								/>
+							</svg>
+							Move
+						</button>
+						<button
+							type="button"
+							class="tool erase"
+							aria-pressed={tool === 'erase'}
+							onclick={() => selectTool('erase')}
+						>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M4 7h16M10 3h4l1 2H9l1-2ZM6 7l1 13h10l1-13M10 11v6m4-6v6" />
+							</svg>
+							Erase
+						</button>
+					</div>
+					<div class="board-actions" role="group" aria-label="Board presets">
+						<button type="button" class="secondary" onclick={flipBoard}>
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path d="M7 4v13M7 4 4 7m3-3 3 3m7 13V7m0 13 3-3m-3 3-3-3" />
+							</svg>
+							Flip board
+						</button>
+						<button type="button" class="secondary" onclick={clearBoard}>Clear board</button>
+						<button type="button" class="secondary" onclick={resetPosition}>Initial position</button
+						>
+					</div>
+				</div>
+
+				<div class="board-notes">
+					<p class="board-hint" data-tool={toolKind}>{toolHint}</p>
+					<details class="board-keys">
+						<summary>Keyboard controls</summary>
+						<p id="board-help">
+							Tab to the board, arrow keys move between squares, Enter picks up and drops a piece or
+							applies the selected tool, Delete removes a piece, Escape cancels. Spare pieces and
+							tools are buttons.
+						</p>
+					</details>
+				</div>
+
+				<div class="board-status">
+					{#if boardError}
+						<p class="field-error" role="alert">{boardError}</p>
+					{/if}
+					<p class="status-message" aria-live="polite">{statusMessage}</p>
 				</div>
 			</div>
-
-			{@render spareRow(bottomSpares, orientation === 'white' ? 'White' : 'Black')}
-
-			<div class="board-toolbar">
-				<div class="tool-group" role="group" aria-label="Board tool">
-					<button
-						type="button"
-						class="tool"
-						aria-pressed={tool === 'move'}
-						onclick={() => selectTool('move')}
-					>
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path
-								d="M12 3v18M3 12h18m-9-9-3 3m3-3 3 3m-3 15-3-3m3 3 3-3M3 12l3-3m-3 3 3 3m15-3-3-3m3 3-3 3"
-							/>
-						</svg>
-						Move
-					</button>
-					<button
-						type="button"
-						class="tool erase"
-						aria-pressed={tool === 'erase'}
-						onclick={() => selectTool('erase')}
-					>
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M4 7h16M10 3h4l1 2H9l1-2ZM6 7l1 13h10l1-13M10 11v6m4-6v6" />
-						</svg>
-						Erase
-					</button>
-				</div>
-				<div class="board-actions" role="group" aria-label="Board presets">
-					<button type="button" class="secondary" onclick={flipBoard}>
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M7 4v13M7 4 4 7m3-3 3 3m7 13V7m0 13 3-3m-3 3-3-3" />
-						</svg>
-						Flip board
-					</button>
-					<button type="button" class="secondary" onclick={clearBoard}>Clear board</button>
-					<button type="button" class="secondary" onclick={resetPosition}>Initial position</button>
-				</div>
-			</div>
-
-			<p class="board-hint" data-tool={toolKind}>{toolHint}</p>
-			<p id="board-help" class="board-help">
-				Keyboard: Tab to the board, arrow keys move between squares, Enter picks up and drops a
-				piece or applies the selected tool, Delete removes a piece, Escape cancels.
-			</p>
 		</div>
 
 		<div class="controls-column">
@@ -683,7 +672,6 @@
 						</label>
 					{/each}
 				</div>
-				<p class="field-help">K, Q: White kingside and queenside. k, q: Black.</p>
 			</fieldset>
 
 			<form class="control-card" onsubmit={applyEnPassant} novalidate>
@@ -709,76 +697,66 @@
 				{/if}
 			</form>
 
-			<div class="control-card status-card">
-				<p class="status-label">Editor status</p>
-				{#if boardError}
-					<p class="field-error" role="alert">{boardError}</p>
+			<form class="fen-form" onsubmit={importFen} novalidate>
+				<label for="position-fen">FEN</label>
+				<div class="field-row">
+					<input
+						id="position-fen"
+						bind:this={fenInputElement}
+						bind:value={fenDraft}
+						oninput={handleFenDraftInput}
+						aria-describedby={fenError ? 'fen-error' : 'fen-help'}
+						aria-invalid={fenError ? 'true' : 'false'}
+						autocomplete="off"
+						spellcheck="false"
+					/>
+					<button type="submit">Import</button>
+				</div>
+				<p id="fen-help" class="field-help">
+					Current position. Paste a four- or six-field FEN and press Import to load it; move
+					counters are validated then omitted.
+				</p>
+				{#if fenError}
+					<p id="fen-error" class="field-error" role="alert">{fenError}</p>
 				{/if}
-				<p class="status-message" aria-live="polite">{statusMessage}</p>
-			</div>
+			</form>
+
+			{@render aside?.()}
 		</div>
 	</div>
 </section>
 
 <style>
 	.position-editor {
+		/* Vertical page chrome around the board: header, palettes, toolbar, notes, status, footer. */
+		--board-chrome: 29.75rem;
 		box-sizing: border-box;
-		width: min(100%, 76rem);
-		padding: clamp(1rem, 3vw, 2rem);
+		width: fit-content;
+		max-width: 100%;
+		padding: clamp(0.75rem, 2vw, 1.25rem);
 		border: 1px solid rgb(148 163 184 / 18%);
-		border-radius: 1.5rem;
+		border-radius: 1.25rem;
 		background: rgb(15 23 42 / 78%);
 		box-shadow: 0 2rem 6rem rgb(0 0 0 / 28%);
 		backdrop-filter: blur(1rem);
 	}
 
-	.editor-heading {
-		display: flex;
-		align-items: end;
-		justify-content: space-between;
-		gap: 1.5rem;
-		margin-bottom: 1.5rem;
-	}
-
-	.editor-heading h2 {
-		margin: 0;
-		font-size: clamp(1.65rem, 4vw, 2.4rem);
-		letter-spacing: -0.035em;
-	}
-
-	.editor-heading > p {
-		max-width: 31rem;
-		margin: 0;
-		color: #aab5c5;
-		line-height: 1.55;
-	}
-
-	.section-kicker {
-		margin: 0 0 0.35rem;
-		color: #60a5fa;
-		font-size: 0.72rem;
-		font-weight: 750;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-	}
-
-	.fen-import,
-	.control-card,
-	fieldset {
-		padding: 1rem;
-		border: 1px solid rgb(148 163 184 / 16%);
-		border-radius: 1rem;
-		background: rgb(8 12 22 / 54%);
-	}
-
-	.fen-import {
-		margin-bottom: 1.5rem;
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		border: 0;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
 	}
 
 	.editor-layout {
 		display: grid;
-		grid-template-columns: minmax(18rem, 1.15fr) minmax(17rem, 0.85fr);
-		gap: clamp(1.25rem, 3vw, 2rem);
+		grid-template-columns: auto minmax(20rem, 34rem);
+		gap: clamp(1rem, 2.5vw, 1.75rem);
 		align-items: start;
 	}
 
@@ -787,19 +765,27 @@
 		min-width: 0;
 	}
 
-	.board-column {
+	/*
+	 * The board kit is as wide as the board. The board is bounded by the viewport height so the
+	 * whole tool fits above the fold, and by the viewport width minus the controls column.
+	 */
+	.board-kit {
 		display: grid;
-		gap: 0.75rem;
+		gap: 0.5rem;
+		width: min(calc(100vh - var(--board-chrome)), calc(100vw - 27rem));
+		width: min(calc(100dvh - var(--board-chrome)), calc(100vw - 27rem));
+		max-width: 100%;
+		margin-inline: auto;
 	}
 
 	/* Spare pieces: the `cg-wrap` class lets Chessground's piece-set CSS paint them. */
 	.spare-row {
 		display: grid;
 		grid-template-columns: repeat(6, minmax(0, 1fr));
-		gap: 0.35rem;
-		padding: 0.35rem;
+		gap: 0.25rem;
+		padding: 0.25rem;
 		border: 1px solid #1e293b;
-		border-radius: 0.85rem;
+		border-radius: 0.75rem;
 		/* A light, board-like tone keeps black spare pieces legible on the dark page. */
 		background: #e3cda6;
 	}
@@ -807,12 +793,14 @@
 	.spare {
 		display: block;
 		box-sizing: border-box;
+		/* An explicit width: a block grid item with auto margins would otherwise collapse to zero. */
+		width: min(100%, 2.75rem);
 		min-height: 0;
 		aspect-ratio: 1;
-		max-height: 4rem;
-		padding: 0.2rem;
+		margin-inline: auto;
+		padding: 0.15rem;
 		border: 1px solid transparent;
-		border-radius: 0.6rem;
+		border-radius: 0.55rem;
 		background: transparent;
 		cursor: grab;
 		touch-action: none;
@@ -843,7 +831,7 @@
 		z-index: 1;
 		width: 100%;
 		aspect-ratio: 1;
-		border: 0.35rem solid #1e293b;
+		border: 0.3rem solid #1e293b;
 		border-radius: 0.4rem;
 		background: #d8b170;
 		box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 28%);
@@ -914,7 +902,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.65rem;
+		gap: 0.5rem;
 	}
 
 	.tool-group,
@@ -922,20 +910,24 @@
 	.field-row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		gap: 0.4rem;
 	}
 
 	.tool-group {
-		padding: 0.25rem;
+		padding: 0.2rem;
 		border: 1px solid rgb(148 163 184 / 16%);
-		border-radius: 0.85rem;
+		border-radius: 0.75rem;
 		background: rgb(8 12 22 / 54%);
 	}
 
+	.board-toolbar button {
+		min-height: 2.25rem;
+		padding: 0.35rem 0.75rem;
+		font-size: 0.86rem;
+	}
+
 	button.tool {
-		min-height: 2.4rem;
 		border-color: transparent;
-		padding: 0.45rem 0.85rem;
 		background: transparent;
 		color: #cbd5e1;
 	}
@@ -965,8 +957,20 @@
 		stroke-linejoin: round;
 	}
 
+	.board-notes {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.25rem 1rem;
+	}
+
+	.board-keys[open] {
+		flex-basis: 100%;
+	}
+
 	.board-hint,
-	.board-help,
+	.board-keys,
 	.field-help {
 		margin: 0;
 		color: #94a3b8;
@@ -987,13 +991,48 @@
 		color: #93c5fd;
 	}
 
+	.board-keys summary {
+		width: fit-content;
+		color: #93c5fd;
+		font-weight: 650;
+		cursor: pointer;
+	}
+
+	.board-keys p {
+		margin: 0.35rem 0 0;
+	}
+
 	.field-help {
-		margin-top: 0.6rem;
+		margin-top: 0.5rem;
+	}
+
+	.fen-form,
+	.control-card,
+	fieldset {
+		padding: 0.85rem;
+		border: 1px solid rgb(148 163 184 / 16%);
+		border-radius: 0.85rem;
+		background: rgb(8 12 22 / 54%);
+	}
+
+	.fen-form input {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.86rem;
+	}
+
+	.board-status {
+		display: grid;
+		gap: 0.25rem;
+		min-height: 1.25rem;
+	}
+
+	.board-status .field-error {
+		margin: 0;
 	}
 
 	.controls-column {
 		display: grid;
-		gap: 1rem;
+		gap: 0.75rem;
 	}
 
 	fieldset {
@@ -1014,7 +1053,7 @@
 	.castling-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.6rem;
+		gap: 0.5rem;
 	}
 
 	.segmented-control label,
@@ -1022,8 +1061,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.55rem;
-		padding: 0.7rem;
-		border-radius: 0.7rem;
+		padding: 0.6rem 0.7rem;
+		border-radius: 0.65rem;
 		background: rgb(30 41 59 / 72%);
 		cursor: pointer;
 	}
@@ -1055,8 +1094,8 @@
 
 	input,
 	button {
-		min-height: 2.75rem;
-		border-radius: 0.7rem;
+		min-height: 2.6rem;
+		border-radius: 0.65rem;
 		font: inherit;
 	}
 
@@ -1064,7 +1103,7 @@
 		box-sizing: border-box;
 		width: 100%;
 		border: 1px solid #475569;
-		padding: 0.65rem 0.75rem;
+		padding: 0.55rem 0.7rem;
 		color: #e5e7eb;
 		background: #0f172a;
 	}
@@ -1084,9 +1123,9 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: 0.45rem;
+		gap: 0.4rem;
 		border: 1px solid #3b82f6;
-		padding: 0.65rem 1rem;
+		padding: 0.55rem 0.9rem;
 		color: #eff6ff;
 		background: #2563eb;
 		font-weight: 750;
@@ -1107,63 +1146,51 @@
 	}
 
 	button:focus-visible,
-	input:focus-visible {
+	input:focus-visible,
+	summary:focus-visible {
 		outline: 0.2rem solid #60a5fa;
 		outline-offset: 0.15rem;
 	}
 
 	.field-error {
-		margin: 0.65rem 0 0;
+		margin: 0.5rem 0 0;
 		color: #fda4af;
 		font-size: 0.82rem;
 		font-weight: 650;
 		line-height: 1.45;
 	}
 
-	.status-card {
-		display: grid;
-		gap: 0.35rem;
-	}
-
-	.status-label {
-		margin: 0;
-		color: #94a3b8;
-		font-size: 0.72rem;
-		font-weight: 750;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-
-	.status-card .field-error {
-		margin: 0;
-	}
-
 	.status-message {
-		min-height: 1.25rem;
 		margin: 0;
 		color: #a7f3d0;
 		font-size: 0.82rem;
 		line-height: 1.45;
 	}
 
+	/* Short viewports: the controls column is the taller one, so the board may use a smaller budget. */
+	@media (max-height: 52rem) {
+		.position-editor {
+			--board-chrome: 25rem;
+		}
+	}
+
 	@media (max-width: 56rem) {
-		.editor-heading {
-			display: grid;
+		.position-editor {
+			width: 100%;
 		}
 
 		.editor-layout {
 			grid-template-columns: minmax(0, 1fr);
 		}
 
-		.board-column {
+		.board-kit {
 			width: min(100%, 38rem);
-			margin-inline: auto;
 		}
 	}
 
 	@media (max-width: 32rem) {
 		.position-editor {
-			padding: 0.8rem;
+			padding: 0.75rem;
 			border-radius: 1rem;
 		}
 
