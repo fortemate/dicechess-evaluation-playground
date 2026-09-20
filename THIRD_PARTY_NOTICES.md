@@ -21,7 +21,9 @@ The current lockfile and container build use the following directly relevant MIT
 
 The exact dependency graph and package license metadata are recorded in `package-lock.json`. The Node.js container base also retains the operating-system notices supplied by the upstream `node:26-trixie-slim` image.
 
-`src/lib/assets/favicon.svg` is the Svelte logo retained from the Svelte project scaffold and is covered by the Svelte MIT notice listed above.
+## Fortemate brand assets (trademark, not licensed with the sources)
+
+`static/favicon.svg`, `static/favicon-16.png`, `static/favicon-32.png`, `static/favicon-48.png`, `static/apple-touch-icon-180.png` and `src/lib/assets/fortemate-mark.svg` (inlined verbatim in `src/lib/components/BrandMark.svelte`) are byte-identical copies of the approved Fortemate web identity bundle (`fortemate/brand`, `dist/identity/web`, commit `44f2b4a`). The Fortemate name and mark identify the origin of this deployment and are trademarks of Jegors Čemisovs; they are **not** covered by the `AGPL-3.0-only` licence of the sources, and redistributions or forks must not use them to suggest origin from or endorsement by Fortemate. Replace them with your own identity when you redistribute a modified playground.
 
 ## Chessground
 
