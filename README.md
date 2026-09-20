@@ -98,6 +98,8 @@ Every network user must be able to retrieve that corresponding source without ch
 
 The `"private": true` package setting only prevents accidental publication to the npm registry; it does not limit the license grant or repository visibility.
 
+The Fortemate name and mark (favicon, header mark) are trademarks and are not licensed with the sources; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and replace them when redistributing a modified playground.
+
 This license applies only to material distributed from this repository. It does not grant access to or license the separately maintained evaluator implementation, model weights, model manifests, training data, credentials, private origins, or deployment secrets. The software is provided without warranty as described in the license.
 
 ## Contributing and security

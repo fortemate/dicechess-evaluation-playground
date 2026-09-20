@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 
 <script lang="ts">
+	import BrandMark from '$lib/components/BrandMark.svelte';
 	import EvaluationPanel from '$lib/components/EvaluationPanel.svelte';
 	import PositionEditor from '$lib/components/PositionEditor.svelte';
 	import { serializeFen } from '$lib/position/fen.js';
@@ -31,9 +32,12 @@
 <main class="playground-page">
 	<div class="playground-shell">
 		<header class="page-header" aria-labelledby="page-title">
-			<div>
-				<p class="eyebrow">Fortemate internal tooling</p>
-				<h1 id="page-title">Evaluation Playground</h1>
+			<div class="page-title">
+				<BrandMark />
+				<div>
+					<p class="eyebrow">Fortemate internal tooling</p>
+					<h1 id="page-title">Evaluation Playground</h1>
+				</div>
 			</div>
 			<details class="page-about">
 				<summary>About this tool</summary>
