@@ -6,7 +6,7 @@ name: dicechess-evaluation-playground
 services:
   playground:
     image: ${PLAYGROUND_IMAGE:?set PLAYGROUND_IMAGE to an immutable image digest}
-    pull_policy: always
+    pull_policy: if_not_present
     restart: unless-stopped
     init: true
     user: '10001:10001'
@@ -67,7 +67,7 @@ services:
 
   evaluator:
     image: ${EVALUATOR_IMAGE:?set EVALUATOR_IMAGE to an immutable image digest}
-    pull_policy: always
+    pull_policy: if_not_present
     restart: unless-stopped
     init: true
     user: '10001:10001'
@@ -85,7 +85,7 @@ services:
       # ONNX Runtime's Java binding extracts JNI libraries to java.io.tmpdir.
       # Keep the general-purpose /tmp non-executable and scope executable
       # temporary storage to this small, device-free mount.
-      - /onnxruntime-tmp:rw,exec,nodev,nosuid,size=64m
+      - /onnxruntime-tmp:rw,exec,nodev,nosuid,size=64m,uid=10001,gid=10001,mode=1770
     environment:
       JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=/onnxruntime-tmp
       HTTP_HOST: 0.0.0.0
