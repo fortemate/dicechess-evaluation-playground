@@ -27,7 +27,7 @@ The playground `/health` endpoint proves only process liveness. Compose waits fo
 Before a change window, the operator must confirm:
 
 - an approved Aurora deployment action under Issue #12;
-- Docker Engine with Compose v2, Git, `mise`, and access to both private GHCR packages;
+- Docker Engine with Compose v2, Git, Node.js (the preflight script runs on it), and access to both private GHCR packages; `mise` is not required on Aurora;
 - enough reserved host capacity for the configured maximum of 2.5 CPUs, 2.25 GiB container memory, model page cache, Docker overhead, and existing Aurora workloads;
 - an exact playground image digest and evaluator image digest produced by successful repository CI;
 - an external model directory containing exactly the selected `model.onnx` and `manifest.json` files;
@@ -62,9 +62,11 @@ Do not put model files, populated environment files, private origins, tokens, or
 5. Run the non-applying checks:
 
    ```bash
-   mise run aurora:preflight
+   bash scripts/validate-aurora-stack.sh --env-file deploy/aurora/.env
    docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml config --quiet
    ```
+
+   On a developer workstation `mise run aurora:preflight` runs the same script.
 
 The preflight fails on mutable image tags, non-loopback publication, evaluator exposure, missing resource/security bounds, a writable or missing model mount, unsafe environment-file permissions, or model/manifest digest mismatch.
 
@@ -123,7 +125,7 @@ Model replacement is an immutable candidate change, not an in-place file overwri
 1. Place the new `model.onnx` and `manifest.json` together in a new versioned directory.
 2. Verify the model hash in the manifest and calculate the manifest SHA-256.
 3. Update only `MODEL_PACKAGE_DIR` and `MODEL_MANIFEST_SHA256` in the local environment file.
-4. Run `mise run aurora:preflight` before restarting anything.
+4. Run the preflight script (`bash scripts/validate-aurora-stack.sh --env-file deploy/aurora/.env`) before restarting anything.
 5. Recreate the evaluator, wait for `/ready`, then recreate the playground if necessary.
 6. Verify returned provenance identifies the intended model digest. Retain the previous model directory until rollback evidence is complete.
 
@@ -144,7 +146,7 @@ Before deployment, retain the last known-good environment file securely, the two
 To roll back:
 
 1. Restore the previous immutable image references, model directory, manifest digest, and matching secrets in the local environment file.
-2. Run `mise run aurora:preflight`.
+2. Run the preflight script (`bash scripts/validate-aurora-stack.sh --env-file deploy/aurora/.env`).
 3. Pull the prior digests and run `docker compose --env-file deploy/aurora/.env -f deploy/aurora/compose.yaml up -d --remove-orphans`.
 4. Wait for evaluator readiness, verify the loopback origin, run an explicit evaluation, and read back the running image/model provenance.
 5. If rollback cannot restore a healthy private stack, stop both containers and remove or disable the Tunnel route under the separately authorized Cloudflare procedure. If the connector network attachment was part of the failed change, restore its previous owner-controlled Compose configuration and recreate only the connector. Do not expose the evaluator as a workaround.
