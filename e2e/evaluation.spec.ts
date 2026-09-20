@@ -128,16 +128,19 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		await page.getByRole('button', { name: 'Import' }).click();
 		await expect(canonicalFen).toHaveText('8/8/8/8/8/8/8/K6k b Kq a3e3');
 
-		// Step 2: Place a black knight on b4
-		await page.getByLabel('Piece').selectOption('n');
-		await page.locator('#square-to-edit').selectOption('b4');
-		await page.getByRole('button', { name: 'Place piece' }).click();
+		// Step 2: Stamp a black knight on b4 from the spare-piece palette
+		await page.getByRole('button', { name: 'Black knight' }).click();
+		await page.getByRole('gridcell', { name: 'b4, empty' }).click();
 		await expect(canonicalFen).toHaveText('8/8/8/8/1n6/8/8/K6k b Kq a3e3');
 
-		// Step 3: Move piece from b4 to c6 using keyboard controls
-		await page.getByLabel('From square').selectOption('b4');
-		await page.getByLabel('To square').selectOption('c6');
-		await page.getByRole('button', { name: 'Move piece', exact: true }).click();
+		// Step 3: Move the knight from b4 to c6 with the keyboard board
+		await page.getByRole('button', { name: 'Move', exact: true }).click();
+		await page.getByRole('gridcell', { name: 'b4, black knight' }).focus();
+		await page.keyboard.press('Enter');
+		await page.keyboard.press('ArrowUp');
+		await page.keyboard.press('ArrowUp');
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('Enter');
 		await expect(canonicalFen).toHaveText('8/8/2n5/8/8/8/8/K6k b Kq a3e3');
 
 		// Step 4: Change explicit side to move to White
