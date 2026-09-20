@@ -73,13 +73,7 @@
 			<strong class="probability">{(result.probability * 100).toFixed(1)}%</strong>
 		</div>
 
-		{#if isStale}
-			<p class="stale-notice">
-				The editor changed after this request. This result belongs to the submitted FEN below.
-			</p>
-		{/if}
-
-		<dl class="result-grid">
+		<dl class="answer-line">
 			<div>
 				<dt>Perspective</dt>
 				<dd>{perspectiveLabel(result.perspective)}</dd>
@@ -88,27 +82,39 @@
 				<dt>Latency</dt>
 				<dd>{result.latencyMs} ms</dd>
 			</div>
-			<div>
-				<dt>Correlation ID</dt>
-				<dd><code>{result.correlationId}</code></dd>
-			</div>
-			<div>
-				<dt>Evaluator version</dt>
-				<dd>{result.evaluatorVersion}</dd>
-			</div>
-			<div>
-				<dt>Model</dt>
-				<dd>{result.modelId}</dd>
-			</div>
-			<div class="digest-row">
-				<dt>Model SHA-256</dt>
-				<dd><code>{result.modelSha256}</code></dd>
-			</div>
-			<div class="fen-row">
-				<dt>Evaluated FEN</dt>
-				<dd><code>{submittedFen}</code></dd>
-			</div>
 		</dl>
+
+		{#if isStale}
+			<p class="stale-notice">
+				The editor changed after this request. This result belongs to the submitted FEN below.
+			</p>
+		{/if}
+
+		<details class="provenance">
+			<summary>Provenance</summary>
+			<dl class="result-grid">
+				<div>
+					<dt>Correlation ID</dt>
+					<dd><code>{result.correlationId}</code></dd>
+				</div>
+				<div>
+					<dt>Evaluator version</dt>
+					<dd>{result.evaluatorVersion}</dd>
+				</div>
+				<div>
+					<dt>Model</dt>
+					<dd>{result.modelId}</dd>
+				</div>
+				<div class="digest-row">
+					<dt>Model SHA-256</dt>
+					<dd><code>{result.modelSha256}</code></dd>
+				</div>
+				<div class="fen-row">
+					<dt>Evaluated FEN</dt>
+					<dd><code>{submittedFen}</code></dd>
+				</div>
+			</dl>
+		</details>
 	{:else if status === 'error' && error && submittedFen}
 		<div class="error-state" role="alert">
 			<p class="result-kicker">Request failed</p>
@@ -132,7 +138,7 @@
 
 <style>
 	.evaluation-result {
-		padding: 0.85rem;
+		padding: 0.75rem 0.85rem;
 		border: 1px solid rgb(148 163 184 / 16%);
 		border-radius: 1rem;
 		background: rgb(8 12 22 / 54%);
@@ -186,11 +192,46 @@
 		margin-top: 0.85rem;
 	}
 
+	.answer-line {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem 1.5rem;
+		margin: 0.45rem 0 0;
+	}
+
+	.answer-line div {
+		display: flex;
+		align-items: baseline;
+		gap: 0.45rem;
+	}
+
+	.answer-line dt {
+		margin: 0;
+	}
+
+	.provenance {
+		margin-top: 0.5rem;
+	}
+
+	.provenance summary {
+		width: fit-content;
+		color: #93c5fd;
+		font-size: 0.82rem;
+		font-weight: 650;
+		cursor: pointer;
+	}
+
+	.provenance summary:focus-visible {
+		border-radius: 0.25rem;
+		outline: 0.2rem solid #60a5fa;
+		outline-offset: 0.2rem;
+	}
+
 	.result-grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 0.75rem;
-		margin: 1rem 0 0;
+		gap: 0.6rem;
+		margin: 0.6rem 0 0;
 	}
 
 	.result-grid > div,
@@ -234,7 +275,7 @@
 	}
 
 	.stale-notice {
-		margin: 0.85rem 0 0;
+		margin: 0.75rem 0 0;
 		padding: 0.75rem;
 		border: 1px solid rgb(251 191 36 / 32%);
 		border-radius: 0.75rem;
