@@ -121,13 +121,10 @@
 		<div>
 			<p class="section-kicker">Explicit evaluation</p>
 			<h3 id="evaluation-title">Model evaluation</h3>
-			<p>
-				One click sends the canonical FEN through the protected same-origin gateway. No automatic
-				evaluation, retries or prefetch.
-			</p>
 		</div>
 		<button
 			type="button"
+			title="Sends the current canonical FEN once through the protected same-origin gateway. No automatic evaluation, retries or prefetch."
 			onclick={evaluate}
 			disabled={!valid || status === 'pending'}
 			aria-describedby={!valid ? 'evaluation-validation' : undefined}
@@ -165,21 +162,14 @@
 
 	.evaluation-actions {
 		display: flex;
-		align-items: start;
+		align-items: center;
 		justify-content: space-between;
 		gap: 0.75rem;
 	}
 
 	.evaluation-actions h3 {
-		margin: 0 0 0.25rem;
-		font-size: 1rem;
-	}
-
-	.evaluation-actions p:last-child {
 		margin: 0;
-		color: #aab5c5;
-		font-size: 0.78rem;
-		line-height: 1.45;
+		font-size: 1rem;
 	}
 
 	.section-kicker {

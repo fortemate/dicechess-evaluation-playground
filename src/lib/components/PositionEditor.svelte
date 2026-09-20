@@ -1032,7 +1032,7 @@
 
 	.controls-column {
 		display: grid;
-		gap: 0.75rem;
+		gap: 0.65rem;
 	}
 
 	fieldset {

@@ -168,6 +168,12 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		await expect(page.getByRole('heading', { name: 'Evaluation complete' })).toBeVisible();
 		await expect(page.locator('.probability')).toHaveText('52.0%');
 
+		// Provenance is one click away, collapsed by default.
+		const provenance = page.locator('details.provenance');
+		await expect(provenance).not.toHaveAttribute('open', '');
+		await provenance.locator('summary').click();
+		await expect(provenance).toHaveAttribute('open', '');
+
 		const perspectiveValue = page.locator('dt:text-is("Perspective") + dd');
 		await expect(perspectiveValue).toHaveText('White to move');
 
