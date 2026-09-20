@@ -53,7 +53,7 @@
 		<div class="result-heading">
 			<div>
 				<p class="result-kicker">Request in progress</p>
-				<h3>Evaluating position…</h3>
+				<h4>Evaluating position…</h4>
 			</div>
 			<span class="pending-indicator" aria-hidden="true"></span>
 		</div>
@@ -68,7 +68,7 @@
 		<div class="result-heading">
 			<div>
 				<p class="result-kicker">Single-model result</p>
-				<h3>Evaluation complete</h3>
+				<h4>Evaluation complete</h4>
 			</div>
 			<strong class="probability">{(result.probability * 100).toFixed(1)}%</strong>
 		</div>
@@ -112,7 +112,7 @@
 	{:else if status === 'error' && error && submittedFen}
 		<div class="error-state" role="alert">
 			<p class="result-kicker">Request failed</p>
-			<h3>{errorTitle(error.code)}</h3>
+			<h4>{errorTitle(error.code)}</h4>
 			<p>{error.error}</p>
 			{#if error.correlationId}
 				<p class="correlation">Correlation ID: <code>{error.correlationId}</code></p>
@@ -153,7 +153,7 @@
 		gap: 1rem;
 	}
 
-	h3 {
+	h4 {
 		margin: 0;
 		font-size: 1.35rem;
 	}
@@ -243,7 +243,7 @@
 		line-height: 1.5;
 	}
 
-	.error-state h3 {
+	.error-state h4 {
 		margin-bottom: 0.5rem;
 		color: #fecdd3;
 	}

@@ -272,7 +272,7 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		// Verify typed error state in UI
 		const errorCard = page.locator('.error-state[role="alert"]');
 		await expect(errorCard).toBeVisible();
-		await expect(errorCard.getByRole('heading', { level: 3 })).toHaveText('Evaluation rejected');
+		await expect(errorCard.getByRole('heading', { level: 4 })).toHaveText('Evaluation rejected');
 		await expect(
 			errorCard.getByText('Invalid or missing authentication credentials'),
 		).toBeVisible();
