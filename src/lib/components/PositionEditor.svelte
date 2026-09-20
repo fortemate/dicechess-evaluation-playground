@@ -729,7 +729,7 @@
 <style>
 	.position-editor {
 		/* Vertical page chrome around the board: header, palettes, toolbar, notes, status, footer. */
-		--board-chrome: 25rem;
+		--board-chrome: 29.75rem;
 		box-sizing: border-box;
 		width: fit-content;
 		max-width: 100%;
@@ -793,9 +793,10 @@
 	.spare {
 		display: block;
 		box-sizing: border-box;
+		/* An explicit width: a block grid item with auto margins would otherwise collapse to zero. */
+		width: min(100%, 2.75rem);
 		min-height: 0;
 		aspect-ratio: 1;
-		max-height: 3rem;
 		margin-inline: auto;
 		padding: 0.15rem;
 		border: 1px solid transparent;
@@ -1166,10 +1167,10 @@
 		line-height: 1.45;
 	}
 
-	/* On short viewports the controls column is taller than the board kit anyway; give the board the slack. */
+	/* Short viewports: the controls column is the taller one, so the board may use a smaller budget. */
 	@media (max-height: 52rem) {
 		.position-editor {
-			--board-chrome: 23rem;
+			--board-chrome: 25rem;
 		}
 	}
 
