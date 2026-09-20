@@ -285,6 +285,7 @@
 	 */
 	function spareDrag(node: HTMLButtonElement, symbol: PieceSymbol) {
 		let pointerPress = false;
+		let releasePending: (() => void) | undefined;
 
 		const start = (event: MouseEvent | TouchEvent): void => {
 			if (!boardAdapter || (event instanceof MouseEvent && event.button !== 0)) {
@@ -292,30 +293,43 @@
 			}
 
 			event.preventDefault();
+			releasePending?.();
 			pointerPress = true;
 			const startPoint = pointOf(event);
+			const isTouch = event.type === 'touchstart';
+			const endType = isTouch ? 'touchend' : 'mouseup';
 			boardAdapter.dragNewPiece(symbol, event);
-			document.addEventListener(
-				event.type === 'touchstart' ? 'touchend' : 'mouseup',
-				(endEvent) => {
-					const endPoint = pointOf(endEvent);
-					const droppedOnBoard =
-						startPoint !== undefined &&
-						endPoint !== undefined &&
-						Math.hypot(endPoint[0] - startPoint[0], endPoint[1] - startPoint[1]) >
-							CLICK_TOLERANCE_PX &&
-						boardAdapter?.squareAt(endPoint[0], endPoint[1]) !== undefined;
-					if (!droppedOnBoard) {
-						toggleSpare(symbol);
-					}
-					// The click a mouse release on the button dispatches next is
-					// already handled here; drop the flag once it has passed.
-					setTimeout(() => {
-						pointerPress = false;
-					}, 0);
-				},
-				{ once: true },
-			);
+
+			const finish = (): void => {
+				releasePending = undefined;
+				document.removeEventListener(endType, release);
+				document.removeEventListener('touchcancel', finish);
+				// The click a mouse release on the button dispatches next is already
+				// handled by `release`; drop the flag once it has passed.
+				setTimeout(() => {
+					pointerPress = false;
+				}, 0);
+			};
+			const release = (endEvent: Event): void => {
+				finish();
+				const endPoint = pointOf(endEvent);
+				const droppedOnBoard =
+					startPoint !== undefined &&
+					endPoint !== undefined &&
+					Math.hypot(endPoint[0] - startPoint[0], endPoint[1] - startPoint[1]) >
+						CLICK_TOLERANCE_PX &&
+					boardAdapter?.squareAt(endPoint[0], endPoint[1]) !== undefined;
+				if (!droppedOnBoard) {
+					toggleSpare(symbol);
+				}
+			};
+
+			releasePending = finish;
+			document.addEventListener(endType, release);
+			if (isTouch) {
+				// A cancelled touch (system gesture, scroll takeover) never fires touchend.
+				document.addEventListener('touchcancel', finish);
+			}
 		};
 
 		const click = (): void => {
@@ -329,6 +343,7 @@
 		node.addEventListener('click', click);
 		return {
 			destroy() {
+				releasePending?.();
 				node.removeEventListener('mousedown', start);
 				node.removeEventListener('touchstart', start);
 				node.removeEventListener('click', click);

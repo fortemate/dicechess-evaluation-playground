@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Jegors Čemisovs
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
@@ -283,6 +283,53 @@ describe('PositionEditor', () => {
 
 		await user.keyboard('{Enter}');
 		expect(queen.getAttribute('aria-pressed')).toBe('false');
+	});
+
+	it('arms a spare piece on a tap, ignores a cancelled touch, and drops stale release listeners', async () => {
+		const user = userEvent.setup();
+		await renderEditor();
+		const bishop = screen.getByRole('button', { name: 'White bishop' });
+
+		// A completed tap arms the piece exactly once.
+		bishop.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
+		expect(boardHarness.dragNewPiece).toHaveBeenCalledExactlyOnceWith('B', expect.any(Event));
+		document.dispatchEvent(new Event('touchend'));
+		await tick();
+		expect(bishop.getAttribute('aria-pressed')).toBe('true');
+		document.dispatchEvent(new Event('touchend'));
+		await tick();
+		expect(bishop.getAttribute('aria-pressed')).toBe('true');
+
+		// A cancelled touch neither toggles nor blocks the next keyboard activation.
+		bishop.dispatchEvent(new Event('touchstart', { bubbles: true, cancelable: true }));
+		document.dispatchEvent(new Event('touchcancel'));
+		await tick();
+		expect(bishop.getAttribute('aria-pressed')).toBe('true');
+		bishop.focus();
+		await user.keyboard('{Enter}');
+		expect(bishop.getAttribute('aria-pressed')).toBe('false');
+		document.dispatchEvent(new Event('touchend'));
+		await tick();
+		expect(bishop.getAttribute('aria-pressed')).toBe('false');
+
+		// A mouse release on the button is handled once; a later stray mouseup is ignored.
+		await user.click(bishop);
+		expect(bishop.getAttribute('aria-pressed')).toBe('true');
+		fireEvent.mouseUp(document);
+		await tick();
+		expect(bishop.getAttribute('aria-pressed')).toBe('true');
+	});
+
+	it('removes pending document listeners when unmounted mid-press', async () => {
+		const { unmount } = await renderEditor();
+		const rook = screen.getByRole('button', { name: 'White rook' });
+
+		fireEvent.mouseDown(rook, { button: 0 });
+		expect(boardHarness.dragNewPiece).toHaveBeenCalledOnce();
+		unmount();
+		expect(() => fireEvent.mouseUp(document)).not.toThrow();
+		expect(boardHarness.squareAt).not.toHaveBeenCalled();
+		expect(boardHarness.destroy).toHaveBeenCalledOnce();
 	});
 
 	it('erases pieces with the Erase tool by click and with Delete from the keyboard', async () => {
