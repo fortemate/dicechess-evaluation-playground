@@ -64,7 +64,7 @@
 		"vitest": "^5.0.0"
 	},
 	"dependencies": {
-		"@lichess-org/chessground": "10.1.1",
+		"@lichess-org/chessground": "10.2.0",
 		"jose": "^6.2.12"
 	}
 }
