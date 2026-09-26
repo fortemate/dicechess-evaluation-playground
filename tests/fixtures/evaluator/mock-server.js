@@ -48,8 +48,8 @@ const server = createServer((req, res) => {
 	// Protected version endpoint
 	if (req.method === 'GET' && url.pathname === '/version') {
 		return sendJson(200, {
-			version: '0.1.0',
-			engineVersion: '0.1.0',
+			version: '0.2.0',
+			engineVersion: '0.2.0',
 		});
 	}
 
@@ -108,7 +108,7 @@ const server = createServer((req, res) => {
 				sideToMove,
 				winProbability: 0.52,
 				provenance: {
-					engineVersion: '0.1.0',
+					engineVersion: '0.2.0',
 					rulesetVersion: '1.0.0',
 					modelId: MODEL_ID,
 					modelSha256: MODEL_SHA256,

@@ -23,7 +23,7 @@ describe('EvaluationClient', () => {
 		sideToMove: 'w',
 		winProbability: 0.53,
 		provenance: {
-			engineVersion: '0.1.0',
+			engineVersion: '0.2.0',
 			rulesetVersion: 'standard-dicechess-v1',
 			modelId: 'standard-kcp',
 			modelSha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',

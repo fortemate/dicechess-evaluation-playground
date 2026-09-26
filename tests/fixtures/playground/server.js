@@ -163,7 +163,7 @@ function sendEvaluationResponse(body, res) {
 		sideToMove,
 		winProbability: 0.52,
 		provenance: {
-			engineVersion: '0.1.0',
+			engineVersion: '0.2.0',
 			rulesetVersion: '1.0.0',
 			modelId: MODEL_ID,
 			modelSha256: MODEL_SHA256,
@@ -222,7 +222,7 @@ async function handleEvaluatorRequest(req, res) {
 		case 'GET /ready':
 			return sendJson(res, 200, { status: 'ready' });
 		case 'GET /version':
-			return sendJson(res, 200, { version: '0.1.0', engineVersion: '0.1.0' });
+			return sendJson(res, 200, { version: '0.2.0', engineVersion: '0.2.0' });
 		case 'GET /manifest':
 			return sendJson(res, 200, { modelId: MODEL_ID, modelSha256: MODEL_SHA256 });
 		case 'GET /test/token':
