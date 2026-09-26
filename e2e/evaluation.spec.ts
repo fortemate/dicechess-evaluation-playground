@@ -186,7 +186,7 @@ test.describe('E2E Playground Evaluation Acceptance Flow', () => {
 		);
 
 		const evaluatorVersionValue = page.locator('dt:text-is("Evaluator version") + dd');
-		await expect(evaluatorVersionValue).toHaveText('0.1.0');
+		await expect(evaluatorVersionValue).toHaveText('0.2.0');
 
 		const modelIdValue = page.locator('dt:text-is("Model") + dd');
 		await expect(modelIdValue).toHaveText(MODEL_ID);
