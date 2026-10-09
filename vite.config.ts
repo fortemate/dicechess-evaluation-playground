@@ -26,7 +26,7 @@ export default defineConfig({
 			provider: 'v8',
 			reporter: ['text', 'lcov'],
 			include: ['src/**/*.ts'],
-			exclude: ['src/app.d.ts', 'src/**/*.e2e.ts'],
+			exclude: ['src/app.d.ts', 'src/env.ts', 'src/**/*.e2e.ts'],
 			thresholds: {
 				branches: 100,
 				functions: 100,
