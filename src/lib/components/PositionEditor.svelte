@@ -17,7 +17,7 @@
 		validateEnPassantTarget,
 		validateFen,
 		validatePositionState,
-	} from '$lib/position/fen.js';
+	} from '#lib/position/fen.js';
 	import {
 		EMPTY_BOARD_FEN,
 		INITIAL_FEN,
@@ -26,7 +26,7 @@
 		type PieceSymbol,
 		type PositionState,
 		type Square,
-	} from '$lib/position/model.js';
+	} from '#lib/position/model.js';
 
 	import {
 		EDITOR_FILES,

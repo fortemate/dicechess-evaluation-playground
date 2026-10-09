@@ -2,9 +2,20 @@ import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
+import adapter from '@sveltejs/adapter-node';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit(), svelteTesting()],
+	plugins: [tailwindcss(), sveltekit({
+			preprocess: vitePreprocess(),
+			compilerOptions: {
+				runes: true,
+			},
+			adapter: adapter({
+				precompress: true,
+			}),
+		}),
+		svelteTesting(),],
 	test: {
 		sharedViteServer: false,
 		expect: { requireAssertions: true },

@@ -4,8 +4,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { RequestEvent } from '@sveltejs/kit';
 import { _createEvaluateHandler, POST } from './+server.js';
-import type { ServerConfig } from '$lib/server/config.js';
-import { EvaluationClient, EvaluationClientError } from '$lib/server/evaluation-client.js';
+import type { ServerConfig } from '#lib/server/config.js';
+import { EvaluationClient, EvaluationClientError } from '#lib/server/evaluation-client.js';
 
 describe('POST /api/evaluate', () => {
 	const testConfig: ServerConfig = {

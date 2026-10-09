@@ -8,7 +8,7 @@ import type { Api } from '@lichess-org/chessground/api';
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key, Piece } from '@lichess-org/chessground/types';
 
-import { parseFen } from '$lib/position/fen.js';
+import { parseFen } from '#lib/position/fen.js';
 
 import {
 	EDITOR_FILES,

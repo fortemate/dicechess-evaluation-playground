@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Jegors Čemisovs
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import type { EvaluationErrorCode } from '$lib/contracts/evaluation.js';
+import type { EvaluationErrorCode } from '#lib/contracts/evaluation.js';
 import type { ServerConfig } from './config.js';
 
 export interface UpstreamEvaluationProvenance {
