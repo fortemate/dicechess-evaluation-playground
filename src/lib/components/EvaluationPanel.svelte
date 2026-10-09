@@ -7,7 +7,7 @@
 		type EvaluationApiError,
 		type EvaluationErrorCode,
 		type PositionEvaluationResponse,
-	} from '$lib/contracts/evaluation.js';
+	} from '#lib/contracts/evaluation.js';
 
 	import EvaluationResult from './EvaluationResult.svelte';
 

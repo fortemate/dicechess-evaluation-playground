@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
-COPY svelte.config.js tsconfig.json vite.config.ts ./
+COPY tsconfig.json vite.config.ts ./
 COPY src ./src
 COPY static ./static
 RUN npm run build
@@ -59,7 +59,6 @@ COPY --from=build --chown=app:app /app/node_modules/cookie/LICENSE ./licenses/th
 COPY --from=build --chown=app:app /app/node_modules/clsx/license ./licenses/third-party/clsx-LICENSE
 COPY --from=build --chown=app:app /app/node_modules/devalue/LICENSE ./licenses/third-party/devalue-LICENSE
 COPY --from=production-deps --chown=app:app /app/node_modules/jose/LICENSE.md ./licenses/third-party/jose-LICENSE.md
-COPY --from=build --chown=app:app /app/node_modules/set-cookie-parser/LICENSE ./licenses/third-party/set-cookie-parser-LICENSE
 
 USER app
 
