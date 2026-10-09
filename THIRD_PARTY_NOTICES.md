@@ -8,16 +8,15 @@ The current lockfile and container build use the following directly relevant MIT
 
 | Component              | Locked version | Copyright source                              | License |
 | ---------------------- | -------------: | --------------------------------------------- | ------- |
-| Svelte                 |         5.57.0 | Svelte Contributors                           | MIT     |
-| SvelteKit              |         2.70.3 | SvelteKit contributors                        | MIT     |
-| SvelteKit adapter-node |          5.5.7 | SvelteKit contributors                        | MIT     |
-| Vite                   |          8.2.2 | VoidZero Inc. and Vite contributors           | MIT     |
+| Svelte                 |         5.57.1 | Svelte Contributors                           | MIT     |
+| SvelteKit              |          3.0.0 | SvelteKit contributors                        | MIT     |
+| SvelteKit adapter-node |          6.0.0 | SvelteKit contributors                        | MIT     |
+| Vite                   |          8.3.2 | VoidZero Inc. and Vite contributors           | MIT     |
 | Tailwind CSS           |          4.3.3 | Tailwind Labs, Inc.                           | MIT     |
-| cookie                 |          0.7.2 | Roman Shtylman and Douglas Christopher Wilson | MIT     |
+| cookie                 |          2.0.1 | Roman Shtylman and Douglas Christopher Wilson | MIT     |
 | clsx                   |          2.1.1 | Luke Edwards                                  | MIT     |
-| devalue                |          5.9.2 | devalue contributors                          | MIT     |
-| jose                   |         6.2.10 | Filip Skokan                                  | MIT     |
-| set-cookie-parser      |          3.1.2 | Nathan Friedly                                | MIT     |
+| devalue                |          5.9.4 | devalue contributors                          | MIT     |
+| jose                   |         6.2.12 | Filip Skokan                                  | MIT     |
 
 The exact dependency graph and package license metadata are recorded in `package-lock.json`. The Node.js container base also retains the operating-system notices supplied by the upstream `node:26-trixie-slim` image.
 
