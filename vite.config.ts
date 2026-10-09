@@ -6,7 +6,9 @@ import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit({
+	plugins: [
+		tailwindcss(),
+		sveltekit({
 			preprocess: vitePreprocess(),
 			compilerOptions: {
 				runes: true,
@@ -15,7 +17,8 @@ export default defineConfig({
 				precompress: true,
 			}),
 		}),
-		svelteTesting(),],
+		svelteTesting(),
+	],
 	test: {
 		sharedViteServer: false,
 		expect: { requireAssertions: true },
