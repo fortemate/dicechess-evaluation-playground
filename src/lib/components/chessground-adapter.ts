@@ -6,8 +6,8 @@ import type { Api } from '@lichess-org/chessground/api';
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key, MouchEvent, Piece } from '@lichess-org/chessground/types';
 
-import { canonicalizePiecePlacement } from '$lib/position/fen.js';
-import type { ActiveColor, PieceSymbol, PositionState, Square } from '$lib/position/model.js';
+import { canonicalizePiecePlacement } from '#lib/position/fen.js';
+import type { ActiveColor, PieceSymbol, PositionState, Square } from '#lib/position/model.js';
 
 export type PieceColor = 'white' | 'black';
 export type PieceRole = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';

@@ -6,7 +6,7 @@
 		EvaluationApiError,
 		EvaluationErrorCode,
 		PositionEvaluationResponse,
-	} from '$lib/contracts/evaluation.js';
+	} from '#lib/contracts/evaluation.js';
 
 	interface Props {
 		status: 'idle' | 'pending' | 'success' | 'error';

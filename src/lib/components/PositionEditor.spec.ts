@@ -6,8 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
 
-import { parseFen } from '$lib/position/fen.js';
-import type { PositionState, Square } from '$lib/position/model.js';
+import { parseFen } from '#lib/position/fen.js';
+import type { PositionState, Square } from '#lib/position/model.js';
 
 import PositionEditor from './PositionEditor.svelte';
 

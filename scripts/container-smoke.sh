@@ -81,8 +81,7 @@ for playground_notice_path in \
   /app/licenses/third-party/tailwindcss-LICENSE \
   /app/licenses/third-party/cookie-LICENSE \
   /app/licenses/third-party/clsx-LICENSE \
-  /app/licenses/third-party/devalue-LICENSE \
-  /app/licenses/third-party/set-cookie-parser-LICENSE; do
+  /app/licenses/third-party/devalue-LICENSE; do
   if ! docker exec "${playground_container}" test -r "${playground_notice_path}"; then
     echo "Missing readable license notice: ${playground_notice_path}" >&2
     exit 1
