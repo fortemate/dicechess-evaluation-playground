@@ -17,7 +17,7 @@
 		validateEnPassantTarget,
 		validateFen,
 		validatePositionState,
-	} from '$lib/position/fen.js';
+	} from '#lib/position/fen.js';
 	import {
 		EMPTY_BOARD_FEN,
 		INITIAL_FEN,
@@ -26,15 +26,15 @@
 		type PieceSymbol,
 		type PositionState,
 		type Square,
-	} from '$lib/position/model.js';
+	} from '#lib/position/model.js';
 
 	import {
 		EDITOR_FILES,
 		EDITOR_PIECES,
 		EDITOR_RANKS,
 		createChessgroundAdapter,
-		type BoardOrientation,
 		type ChessgroundAdapter,
+		type PieceColor,
 	} from './chessground-adapter.js';
 
 	/** What a click or Enter on a board square does: move pieces, erase them, or stamp a spare piece. */
@@ -74,7 +74,7 @@
 
 	let tool = $state<EditorTool>('move');
 	let heldSquare = $state<Square>();
-	let orientation = $state<BoardOrientation>('white');
+	let orientation = $state<PieceColor>('white');
 	let focusedSquare = $state<Square>('e4');
 
 	let boardElement: HTMLDivElement;

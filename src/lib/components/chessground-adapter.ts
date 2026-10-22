@@ -6,12 +6,11 @@ import type { Api } from '@lichess-org/chessground/api';
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key, MouchEvent, Piece } from '@lichess-org/chessground/types';
 
-import { canonicalizePiecePlacement } from '$lib/position/fen.js';
-import type { ActiveColor, PieceSymbol, PositionState, Square } from '$lib/position/model.js';
+import { canonicalizePiecePlacement } from '#lib/position/fen.js';
+import type { ActiveColor, PieceSymbol, PositionState, Square } from '#lib/position/model.js';
 
 export type PieceColor = 'white' | 'black';
 export type PieceRole = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
-export type BoardOrientation = PieceColor;
 
 export interface EditorPiece {
 	symbol: PieceSymbol;
@@ -35,13 +34,13 @@ export interface ChessgroundAdapter {
 	dragNewPiece(piece: PieceSymbol, event: MouseEvent | TouchEvent): void;
 	/** The board square under a viewport point, or undefined outside the board. */
 	squareAt(clientX: number, clientY: number): Square | undefined;
-	setOrientation(orientation: BoardOrientation): void;
+	setOrientation(orientation: PieceColor): void;
 	destroy(): void;
 }
 
 interface CreateChessgroundAdapterOptions {
 	state: PositionState;
-	orientation: BoardOrientation;
+	orientation: PieceColor;
 	onPiecePlacementChange: (piecePlacement: string) => void;
 }
 

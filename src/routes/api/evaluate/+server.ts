@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import { canonicalizeFen, validateFen } from '$lib/position/fen.js';
+import { canonicalizeFen, validateFen } from '#lib/position/fen.js';
 import type {
 	EvaluationApiError,
 	PositionEvaluationRequest,
 	PositionEvaluationResponse,
-} from '$lib/contracts/evaluation.js';
-import { loadServerConfig, type ServerConfig } from '$lib/server/config.js';
-import { CloudflareAccessValidator } from '$lib/server/cloudflare-access.js';
+} from '#lib/contracts/evaluation.js';
+import { loadServerConfig, type ServerConfig } from '#lib/server/config.js';
+import { CloudflareAccessValidator } from '#lib/server/cloudflare-access.js';
 import {
 	EvaluationClient,
 	EvaluationClientError,
 	getPublicEvaluationErrorMessage,
-} from '$lib/server/evaluation-client.js';
+} from '#lib/server/evaluation-client.js';
 
 function jsonResponse(data: unknown, status = 200, correlationId?: string): Response {
 	const headers: Record<string, string> = {
@@ -237,15 +237,9 @@ export function _createEvaluateHandler(deps: EvaluateHandlerDependencies = {}): 
 		const correlationId = crypto.randomUUID();
 
 		try {
-			if (!cachedConfig) {
-				cachedConfig = loadServerConfig();
-			}
-			if (!cachedValidator) {
-				cachedValidator = new CloudflareAccessValidator(cachedConfig);
-			}
-			if (!cachedClient) {
-				cachedClient = new EvaluationClient(cachedConfig);
-			}
+			cachedConfig ??= loadServerConfig();
+			cachedValidator ??= new CloudflareAccessValidator(cachedConfig);
+			cachedClient ??= new EvaluationClient(cachedConfig);
 		} catch {
 			return errorResponse(500, {
 				code: 'INTERNAL_FAILURE',
