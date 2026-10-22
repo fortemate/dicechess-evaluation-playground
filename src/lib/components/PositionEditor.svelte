@@ -33,8 +33,8 @@
 		EDITOR_PIECES,
 		EDITOR_RANKS,
 		createChessgroundAdapter,
-		type BoardOrientation,
 		type ChessgroundAdapter,
+		type PieceColor,
 	} from './chessground-adapter.js';
 
 	/** What a click or Enter on a board square does: move pieces, erase them, or stamp a spare piece. */
@@ -74,7 +74,7 @@
 
 	let tool = $state<EditorTool>('move');
 	let heldSquare = $state<Square>();
-	let orientation = $state<BoardOrientation>('white');
+	let orientation = $state<PieceColor>('white');
 	let focusedSquare = $state<Square>('e4');
 
 	let boardElement: HTMLDivElement;

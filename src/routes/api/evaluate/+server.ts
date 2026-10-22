@@ -237,15 +237,9 @@ export function _createEvaluateHandler(deps: EvaluateHandlerDependencies = {}): 
 		const correlationId = crypto.randomUUID();
 
 		try {
-			if (!cachedConfig) {
-				cachedConfig = loadServerConfig();
-			}
-			if (!cachedValidator) {
-				cachedValidator = new CloudflareAccessValidator(cachedConfig);
-			}
-			if (!cachedClient) {
-				cachedClient = new EvaluationClient(cachedConfig);
-			}
+			cachedConfig ??= loadServerConfig();
+			cachedValidator ??= new CloudflareAccessValidator(cachedConfig);
+			cachedClient ??= new EvaluationClient(cachedConfig);
 		} catch {
 			return errorResponse(500, {
 				code: 'INTERNAL_FAILURE',
