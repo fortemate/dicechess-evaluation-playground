@@ -8,10 +8,10 @@ The current lockfile and container build use the following directly relevant MIT
 
 | Component              | Locked version | Copyright source                              | License |
 | ---------------------- | -------------: | --------------------------------------------- | ------- |
-| Svelte                 |         5.57.1 | Svelte Contributors                           | MIT     |
+| Svelte                 |         5.57.2 | Svelte Contributors                           | MIT     |
 | SvelteKit              |          3.0.0 | SvelteKit contributors                        | MIT     |
 | SvelteKit adapter-node |          6.0.0 | SvelteKit contributors                        | MIT     |
-| Vite                   |          8.3.2 | VoidZero Inc. and Vite contributors           | MIT     |
+| Vite                   |          8.3.4 | VoidZero Inc. and Vite contributors           | MIT     |
 | Tailwind CSS           |          4.3.3 | Tailwind Labs, Inc.                           | MIT     |
 | cookie                 |          2.0.1 | Roman Shtylman and Douglas Christopher Wilson | MIT     |
 | clsx                   |          2.1.1 | Luke Edwards                                  | MIT     |
