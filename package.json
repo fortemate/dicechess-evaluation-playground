@@ -62,7 +62,7 @@
 	},
 	"dependencies": {
 		"@lichess-org/chessground": "10.4.2",
-		"jose": "^6.2.12"
+		"jose": "^6.2.13"
 	},
 	"imports": {
 		"#lib/*": "./src/lib/*"
