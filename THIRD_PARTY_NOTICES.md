@@ -28,8 +28,8 @@ The exact dependency graph and package license metadata are recorded in `package
 
 The position editor distributes Chessground through a playground-owned adapter.
 
-- Package: `@lichess-org/chessground@10.1.1`
-- Reviewed upstream commit: <https://github.com/lichess-org/chessground/tree/4d7e91bb02bd7ed2796aac2c1956c9552b323e7c>
+- Package: `@lichess-org/chessground@10.5.0`
+- Reviewed upstream commit: <https://github.com/lichess-org/chessground/tree/b4f605018e1043640c917e82a74b214cb58e4a05>
 - Copyright: Lichess Team
 - License: `GPL-3.0-or-later`
 - Preserved license text: [`LICENSES/chessground-GPL-3.0-or-later.txt`](LICENSES/chessground-GPL-3.0-or-later.txt)
