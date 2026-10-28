@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Jegors Čemisovs
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import type { ActiveColor } from '$lib/position/model.js';
+import type { ActiveColor } from '#lib/position/model.js';
 
 /**
  * Stable machine-readable error codes for the evaluation BFF and evaluator API.

@@ -2,11 +2,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-only -->
 
 <script lang="ts">
-	import BrandMark from '$lib/components/BrandMark.svelte';
-	import EvaluationPanel from '$lib/components/EvaluationPanel.svelte';
-	import PositionEditor from '$lib/components/PositionEditor.svelte';
-	import { serializeFen } from '$lib/position/fen.js';
-	import { INITIAL_FEN, type PositionState } from '$lib/position/model.js';
+	import BrandMark from '#lib/components/BrandMark.svelte';
+	import EvaluationPanel from '#lib/components/EvaluationPanel.svelte';
+	import PositionEditor from '#lib/components/PositionEditor.svelte';
+	import { serializeFen } from '#lib/position/fen.js';
+	import { INITIAL_FEN, type PositionState } from '#lib/position/model.js';
 
 	let currentFen = $state(INITIAL_FEN);
 	let positionReady = $state(true);

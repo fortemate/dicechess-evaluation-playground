@@ -7,7 +7,7 @@
 	// separate asset: the Fortemate name and mark are trademarks and are not covered by
 	// this file's licence (see THIRD_PARTY_NOTICES.md). It is painted through a CSS mask
 	// so it takes the surrounding text colour without embedding its markup here.
-	import mark from '$lib/assets/fortemate-mark.svg';
+	import mark from '#lib/assets/fortemate-mark.svg';
 </script>
 
 <!-- Quoted: Vite may inline the asset as a data URI containing apostrophes. -->

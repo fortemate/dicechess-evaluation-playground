@@ -3,12 +3,12 @@
 
 <script lang="ts">
 	import './layout.css';
-	import { env } from '$env/dynamic/public';
+	import { PUBLIC_SOURCE_REVISION } from '$app/env/public';
 
 	let { children } = $props();
 
 	const repositoryUrl = 'https://github.com/fortemate/dicechess-evaluation-playground';
-	const configuredRevision = env.PUBLIC_SOURCE_REVISION;
+	const configuredRevision = PUBLIC_SOURCE_REVISION;
 	const hasExactRevision = Boolean(
 		configuredRevision && /^[0-9a-f]{40}$/i.test(configuredRevision),
 	);
