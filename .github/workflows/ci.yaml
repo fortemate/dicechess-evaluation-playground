@@ -16,7 +16,8 @@ concurrency:
 jobs:
   quality:
     name: Quality and browser smoke
-    runs-on: ubuntu-latest
+    # Hurl 6.1.0 requires libxml2.so.2, which ubuntu-26.04 no longer provides.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
