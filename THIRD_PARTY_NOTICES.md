@@ -16,7 +16,7 @@ The current lockfile and container build use the following directly relevant MIT
 | cookie                 |          2.0.1 | Roman Shtylman and Douglas Christopher Wilson | MIT     |
 | clsx                   |          2.1.1 | Luke Edwards                                  | MIT     |
 | devalue                |          5.9.4 | devalue contributors                          | MIT     |
-| jose                   |         6.2.12 | Filip Skokan                                  | MIT     |
+| jose                   |         6.2.13 | Filip Skokan                                  | MIT     |
 
 The exact dependency graph and package license metadata are recorded in `package-lock.json`. The Node.js container base also retains the operating-system notices supplied by the upstream `node:26-trixie-slim` image.
 
