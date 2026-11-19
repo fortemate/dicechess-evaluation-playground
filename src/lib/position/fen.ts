@@ -323,7 +323,7 @@ export function piecePlacementToBoard(piecePlacement: string): Board {
 
 	for (let i = 0; i < 8; i++) {
 		const rankStr = ranks[i];
-		const row = Array<PieceSymbol | null>(8).fill(null);
+		const row: Board[number] = [null, null, null, null, null, null, null, null];
 		// A run occupies one FEN token but several board cells.
 		let emptyOffset = 0;
 		for (let tokenIndex = 0; tokenIndex < rankStr.length; tokenIndex++) {
