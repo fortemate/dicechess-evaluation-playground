@@ -145,7 +145,9 @@ export function validatePiecePlacement(piecePlacement: string): ValidationResult
 		const rankNumber = 8 - i;
 		let squareCount = 0;
 
-		for (const char of rankStr) {
+		for (let j = 0; j < rankStr.length; j++) {
+			const char = rankStr[j];
+
 			if (char >= '1' && char <= '8') {
 				squareCount += Number(char);
 			} else if (VALID_PIECE_SYMBOLS.has(char)) {
@@ -153,7 +155,7 @@ export function validatePiecePlacement(piecePlacement: string): ValidationResult
 			} else {
 				return {
 					valid: false,
-					error: `Invalid piece placement: unsupported symbol '${char[0]}' in rank ${rankNumber}`,
+					error: `Invalid piece placement: unsupported symbol '${char}' in rank ${rankNumber}`,
 				};
 			}
 		}
@@ -198,11 +200,12 @@ export function validateCastlingRights(castlingRights: string): ValidationResult
 	}
 
 	const seen = new Set<string>();
-	for (const char of castlingRights) {
+	for (let i = 0; i < castlingRights.length; i++) {
+		const char = castlingRights[i];
 		if (!CANONICAL_CASTLING_SYMBOLS.includes(char as (typeof CANONICAL_CASTLING_SYMBOLS)[number])) {
 			return {
 				valid: false,
-				error: `Invalid castling symbol '${char[0]}' in '${castlingRights}'`,
+				error: `Invalid castling symbol '${char}' in '${castlingRights}'`,
 			};
 		}
 		if (seen.has(char)) {
@@ -320,16 +323,15 @@ export function piecePlacementToBoard(piecePlacement: string): Board {
 
 	for (let i = 0; i < 8; i++) {
 		const rankStr = ranks[i];
-		const row: (PieceSymbol | null)[] = [];
-
-		for (const char of rankStr) {
+		const row = Array<PieceSymbol | null>(8).fill(null);
+		// A run occupies one FEN token but several board cells.
+		let emptyOffset = 0;
+		for (let tokenIndex = 0; tokenIndex < rankStr.length; tokenIndex++) {
+			const char = rankStr[tokenIndex];
 			if (char >= '1' && char <= '8') {
-				const emptySquares = Number(char);
-				for (let k = 0; k < emptySquares; k++) {
-					row.push(null);
-				}
+				emptyOffset += Number(char) - 1;
 			} else {
-				row.push(char as PieceSymbol);
+				row[tokenIndex + emptyOffset] = char as PieceSymbol;
 			}
 		}
 
