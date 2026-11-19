@@ -145,9 +145,7 @@ export function validatePiecePlacement(piecePlacement: string): ValidationResult
 		const rankNumber = 8 - i;
 		let squareCount = 0;
 
-		for (let j = 0; j < rankStr.length; j++) {
-			const char = rankStr[j];
-
+		for (const char of rankStr) {
 			if (char >= '1' && char <= '8') {
 				squareCount += Number(char);
 			} else if (VALID_PIECE_SYMBOLS.has(char)) {
@@ -155,7 +153,7 @@ export function validatePiecePlacement(piecePlacement: string): ValidationResult
 			} else {
 				return {
 					valid: false,
-					error: `Invalid piece placement: unsupported symbol '${char}' in rank ${rankNumber}`,
+					error: `Invalid piece placement: unsupported symbol '${char[0]}' in rank ${rankNumber}`,
 				};
 			}
 		}
@@ -200,12 +198,11 @@ export function validateCastlingRights(castlingRights: string): ValidationResult
 	}
 
 	const seen = new Set<string>();
-	for (let i = 0; i < castlingRights.length; i++) {
-		const char = castlingRights[i];
+	for (const char of castlingRights) {
 		if (!CANONICAL_CASTLING_SYMBOLS.includes(char as (typeof CANONICAL_CASTLING_SYMBOLS)[number])) {
 			return {
 				valid: false,
-				error: `Invalid castling symbol '${char}' in '${castlingRights}'`,
+				error: `Invalid castling symbol '${char[0]}' in '${castlingRights}'`,
 			};
 		}
 		if (seen.has(char)) {
@@ -303,7 +300,8 @@ export function canonicalizeEnPassantTarget(enPassant: string): EnPassantTarget 
 }
 
 function squareIndex(square: string): number {
-	const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
+	// Callers validate ASCII square pairs before sorting.
+	const file = square.codePointAt(0)! - 'a'.codePointAt(0)!;
 	const rank = Number(square[1]) - 1;
 	return rank * 8 + file;
 }
@@ -324,8 +322,7 @@ export function piecePlacementToBoard(piecePlacement: string): Board {
 		const rankStr = ranks[i];
 		const row: (PieceSymbol | null)[] = [];
 
-		for (let j = 0; j < rankStr.length; j++) {
-			const char = rankStr[j];
+		for (const char of rankStr) {
 			if (char >= '1' && char <= '8') {
 				const emptySquares = Number(char);
 				for (let k = 0; k < emptySquares; k++) {
