@@ -44,7 +44,7 @@ export class CloudflareAccessValidator {
 			const jwksUrl = new URL(`${config.cfAccessTeamDomain}/cdn-cgi/access/certs`);
 			this.keyResolver = createRemoteJWKSet(jwksUrl);
 		} else {
-			this.keyResolver = async () => {
+			this.keyResolver = () => {
 				throw new Error('JWKS key resolver not configured');
 			};
 		}
