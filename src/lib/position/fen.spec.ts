@@ -317,8 +317,8 @@ describe('FEN Parsing & Validation', () => {
 			const placement = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 			const board = piecePlacementToBoard(placement);
 
-			expect(board.length).toBe(8);
-			expect(board[0].length).toBe(8);
+			expect(board).toHaveLength(8);
+			expect(board[0]).toHaveLength(8);
 			expect(board[0][0]).toBe('r');
 			expect(board[0][4]).toBe('k');
 			expect(board[3][0]).toBeNull();

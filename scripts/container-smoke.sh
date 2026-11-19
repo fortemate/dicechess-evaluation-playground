@@ -9,7 +9,7 @@ playground_container="evaluation-playground-smoke-${RANDOM}"
 playground_internal_port="${CONTAINER_PORT:-3100}"
 
 playground_license_label="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "${playground_image}")"
-if [ "${playground_license_label}" != "AGPL-3.0-only" ]; then
+if [[ "${playground_license_label}" != "AGPL-3.0-only" ]]; then
   echo "Expected OCI license AGPL-3.0-only, got ${playground_license_label:-missing}" >&2
   exit 1
 fi
@@ -45,14 +45,14 @@ playground_health_url="http://127.0.0.1:${playground_port}/health"
 
 for _ in $(seq 1 30); do
   playground_health_status="$(docker inspect --format '{{.State.Health.Status}}' "${playground_container}")"
-  if [ "${playground_health_status}" = "healthy" ] \
+  if [[ "${playground_health_status}" == "healthy" ]] \
     && playground_health_body="$(curl --fail --silent --show-error --connect-timeout 1 --max-time 3 "${playground_health_url}" 2>/dev/null)"; then
     break
   fi
   sleep 1
 done
 
-if [ "${playground_health_status:-}" != "healthy" ] || [ -z "${playground_health_body:-}" ]; then
+if [[ "${playground_health_status:-}" != "healthy" ]] || [[ -z "${playground_health_body:-}" ]]; then
   docker logs "${playground_container}"
   echo "Container did not become healthy: ${playground_health_url} (${playground_health_status:-unknown})" >&2
   exit 1
@@ -66,7 +66,7 @@ node -e '
 ' "${playground_health_body}"
 
 playground_runtime_uid="$(docker exec "${playground_container}" id -u)"
-if [ "${playground_runtime_uid}" != "10001" ]; then
+if [[ "${playground_runtime_uid}" != "10001" ]]; then
   echo "Expected runtime UID 10001, got ${playground_runtime_uid}" >&2
   exit 1
 fi
