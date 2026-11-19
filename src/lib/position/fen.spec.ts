@@ -441,3 +441,20 @@ describe('UTF-16 validation diagnostics', () => {
 		},
 	);
 });
+
+describe('FEN run-length board expansion', () => {
+	it.each([
+		['8', '........'],
+		['11111111', '........'],
+		['PPPPPPPP', 'PPPPPPPP'],
+		['1P6', '.P......'],
+		['11P5', '..P.....'],
+		['P1p2N2', 'P.p..N..'],
+		['7P', '.......P'],
+		['P7', 'P.......'],
+	])('expands %s to the exact eight board cells', (rank, expected) => {
+		const board = piecePlacementToBoard(`${rank}/8/8/8/8/8/8/8`);
+		expect(board[0]).toHaveLength(8);
+		expect(board[0].map((piece) => piece ?? '.').join('')).toBe(expected);
+	});
+});
