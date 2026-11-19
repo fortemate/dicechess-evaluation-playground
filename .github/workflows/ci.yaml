@@ -30,13 +30,15 @@ jobs:
         uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci --ignore-scripts
+          npm run prepare
 
       - name: Run canonical quality gate
         run: mise run check
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
 
       - name: Test built adapter-node application
         run: mise run test:e2e
