@@ -411,3 +411,33 @@ describe('FEN Parsing & Validation', () => {
 		});
 	});
 });
+
+describe('UTF-16 validation diagnostics', () => {
+	const symbols = [
+		['\u{1F600}', '\uD83D'],
+		['\uD83D', '\uD83D'],
+		['\uDE00', '\uDE00'],
+		['K', 'K'],
+	] as const;
+
+	it.each(symbols)(
+		'keeps the first UTF-16 unit for unsupported placement %s',
+		(symbol, firstUnit) => {
+			const placement = `${symbol}7/8/8/8/8/8/8/8`;
+			const error = `Invalid piece placement: unsupported symbol '${firstUnit}' in rank 8`;
+			expect(validatePiecePlacement(placement)).toEqual({ valid: false, error });
+			expect(() => piecePlacementToBoard(placement)).toThrowError(new Error(error));
+		},
+	);
+
+	it.each(symbols)(
+		'keeps the first UTF-16 unit for unsupported castling %s',
+		(symbol, firstUnit) => {
+			const castling = `K${symbol}`;
+			expect(validateCastlingRights(castling)).toEqual({
+				valid: false,
+				error: `Invalid castling symbol '${firstUnit}' in '${castling}'`,
+			});
+		},
+	);
+});
