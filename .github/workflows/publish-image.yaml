@@ -21,16 +21,17 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Checkout successful CI commit
+      - name: Checkout trusted main for validation
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -38,12 +39,19 @@ jobs:
         env:
           TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::CI commit must be a full commit SHA."
+            exit 1
+          fi
+
           main_head=$(git rev-parse --verify 'refs/remotes/origin/main^{commit}')
 
           if ! git merge-base --is-ancestor "$TARGET_SHA" "$main_head"; then
             echo "::error::CI commit $TARGET_SHA is not reachable from origin/main."
             exit 1
           fi
+
+          git checkout --detach "$TARGET_SHA"
 
       - name: Resolve application version
         id: version

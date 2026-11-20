@@ -137,3 +137,18 @@ test('serves the adapter-node application and health endpoint', async ({ page, r
 		code: 'AUTHENTICATION_FAILURE',
 	});
 });
+
+for (const [path, status] of [
+	['/', 200],
+	['/missing-document-title', 404],
+] as const) {
+	test(`serves one document title for ${path}`, async ({ page }) => {
+		const response = await page.goto(path);
+		if (!response) throw new Error('Document navigation did not return a response');
+		expect(response.status()).toBe(status);
+		const html = await response.text();
+		expect(html.match(/<title(?:\s[^>]*)?>[\s\S]*?<\/title>/gi) ?? []).toHaveLength(1);
+		await expect(page).toHaveTitle('Dice Chess Evaluation Playground');
+		await expect(page.locator('head title')).toHaveCount(1);
+	});
+}

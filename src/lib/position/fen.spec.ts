@@ -317,8 +317,8 @@ describe('FEN Parsing & Validation', () => {
 			const placement = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 			const board = piecePlacementToBoard(placement);
 
-			expect(board.length).toBe(8);
-			expect(board[0].length).toBe(8);
+			expect(board).toHaveLength(8);
+			expect(board[0]).toHaveLength(8);
 			expect(board[0][0]).toBe('r');
 			expect(board[0][4]).toBe('k');
 			expect(board[3][0]).toBeNull();
@@ -409,5 +409,52 @@ describe('FEN Parsing & Validation', () => {
 			};
 			expect(validatePositionState(badEnPassant).valid).toBe(false);
 		});
+	});
+});
+
+describe('UTF-16 validation diagnostics', () => {
+	const symbols = [
+		['\u{1F600}', '\uD83D'],
+		['\uD83D', '\uD83D'],
+		['\uDE00', '\uDE00'],
+		['K', 'K'],
+	] as const;
+
+	it.each(symbols)(
+		'keeps the first UTF-16 unit for unsupported placement %s',
+		(symbol, firstUnit) => {
+			const placement = `${symbol}7/8/8/8/8/8/8/8`;
+			const error = `Invalid piece placement: unsupported symbol '${firstUnit}' in rank 8`;
+			expect(validatePiecePlacement(placement)).toEqual({ valid: false, error });
+			expect(() => piecePlacementToBoard(placement)).toThrowError(new Error(error));
+		},
+	);
+
+	it.each(symbols)(
+		'keeps the first UTF-16 unit for unsupported castling %s',
+		(symbol, firstUnit) => {
+			const castling = `K${symbol}`;
+			expect(validateCastlingRights(castling)).toEqual({
+				valid: false,
+				error: `Invalid castling symbol '${firstUnit}' in '${castling}'`,
+			});
+		},
+	);
+});
+
+describe('FEN run-length board expansion', () => {
+	it.each([
+		['8', '........'],
+		['11111111', '........'],
+		['PPPPPPPP', 'PPPPPPPP'],
+		['1P6', '.P......'],
+		['11P5', '..P.....'],
+		['P1p2N2', 'P.p..N..'],
+		['7P', '.......P'],
+		['P7', 'P.......'],
+	])('expands %s to the exact eight board cells', (rank, expected) => {
+		const board = piecePlacementToBoard(`${rank}/8/8/8/8/8/8/8`);
+		expect(board[0]).toHaveLength(8);
+		expect(board[0].map((piece) => piece ?? '.').join('')).toBe(expected);
 	});
 });

@@ -21,7 +21,6 @@
 </script>
 
 <svelte:head>
-	<title>Dice Chess Evaluation Playground</title>
 	<meta
 		name="description"
 		content="Protected playground for interactively testing Dice Chess evaluation models."

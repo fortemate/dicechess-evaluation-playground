@@ -3,6 +3,7 @@ node = "26.1.0"
 lefthook = "2.1.9"
 betterleaks = "1.5.0"
 actionlint = "1.7.12"
+shellcheck = "0.11.0"
 hurl = "6.1.0"
 
 [tasks.setup]
@@ -55,7 +56,7 @@ run = "npm run test:e2e"
 
 [tasks."test:e2e:install"]
 description = "Install the Chromium browser used by Playwright"
-run = "npx playwright install chromium"
+run = "node node_modules/@playwright/test/cli.js install chromium"
 
 [tasks."hook:install"]
 description = "Register Lefthook Git hooks"

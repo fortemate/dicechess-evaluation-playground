@@ -303,7 +303,8 @@ export function canonicalizeEnPassantTarget(enPassant: string): EnPassantTarget 
 }
 
 function squareIndex(square: string): number {
-	const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
+	// Callers validate ASCII square pairs before sorting.
+	const file = square.codePointAt(0)! - 'a'.codePointAt(0)!;
 	const rank = Number(square[1]) - 1;
 	return rank * 8 + file;
 }
@@ -322,17 +323,15 @@ export function piecePlacementToBoard(piecePlacement: string): Board {
 
 	for (let i = 0; i < 8; i++) {
 		const rankStr = ranks[i];
-		const row: (PieceSymbol | null)[] = [];
-
-		for (let j = 0; j < rankStr.length; j++) {
-			const char = rankStr[j];
+		const row: Board[number] = [null, null, null, null, null, null, null, null];
+		// A run occupies one FEN token but several board cells.
+		let emptyOffset = 0;
+		for (let tokenIndex = 0; tokenIndex < rankStr.length; tokenIndex++) {
+			const char = rankStr[tokenIndex];
 			if (char >= '1' && char <= '8') {
-				const emptySquares = Number(char);
-				for (let k = 0; k < emptySquares; k++) {
-					row.push(null);
-				}
+				emptyOffset += Number(char) - 1;
 			} else {
-				row.push(char as PieceSymbol);
+				row[tokenIndex + emptyOffset] = char as PieceSymbol;
 			}
 		}
 
